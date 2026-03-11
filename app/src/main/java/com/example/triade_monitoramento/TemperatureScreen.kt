@@ -18,9 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
+import com.github.mikephil.charting.formatter.ValueFormatter
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -59,9 +61,7 @@ fun TemperatureScreen(
             .background(background)
             .padding(16.dp)
     ) {
-
         Row(verticalAlignment = Alignment.CenterVertically) {
-
             Image(
                 painter = painterResource(id = R.drawable.ic_logo),
                 contentDescription = "Logo do app",
@@ -80,8 +80,8 @@ fun TemperatureScreen(
         Spacer(Modifier.height(12.dp))
 
         Card(
-            Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(Modifier.padding(16.dp)) {
                 val temp = state.latestTemp
@@ -95,13 +95,10 @@ fun TemperatureScreen(
 
                 Text(
                     text = buildAnnotatedString {
-
                         append("Atual: ")
 
                         if (temp != null) {
-                            withStyle(
-                                style = SpanStyle(color = Color(0xFF769F86))
-                            ) {
+                            withStyle(style = SpanStyle(color = tempColor)) {
                                 append("%.2f °C".format(temp))
                             }
                         } else {
@@ -111,9 +108,7 @@ fun TemperatureScreen(
                         append(" | ")
 
                         if (hum != null) {
-                            withStyle(
-                                style = SpanStyle(color = Color(0xFFC9BF5A))
-                            ) {
+                            withStyle(style = SpanStyle(color = Color(0xFFC9BF5A))) {
                                 append("%.1f %%".format(hum))
                             }
                         } else {
@@ -132,7 +127,11 @@ fun TemperatureScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = if (showHumidity) "Mostrando: Umidade (%)" else "Mostrando: Temperatura (°C)",
+                        text = if (showHumidity) {
+                            "Mostrando: Umidade (%)"
+                        } else {
+                            "Mostrando: Temperatura (°C)"
+                        },
                         style = MaterialTheme.typography.titleMedium
                     )
 
@@ -153,10 +152,8 @@ fun TemperatureScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(
-                        colors = ButtonDefaults.buttonColors(containerColor = if (showHumidity)
-                            Color(0xFFC9BF5A)
-                        else
-                            Color(0xFF769F86)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (showHumidity) Color(0xFFC9BF5A) else Color(0xFF769F86)
                         ),
                         shape = RoundedCornerShape(8.dp),
                         onClick = { showFilter = true },
@@ -191,7 +188,10 @@ fun TemperatureScreen(
 
                 state.error?.let {
                     Spacer(Modifier.height(12.dp))
-                    Text("Erro: $it", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = "Erro: $it",
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -217,10 +217,7 @@ private fun TemperatureLineChart(
             .padding(horizontal = 4.dp, vertical = 1.dp)
             .border(
                 width = 2.dp,
-                color = if (showHumidity)
-                    Color(0xFFC9BF5A)
-                else
-                    Color(0xFF769F86),
+                color = if (showHumidity) Color(0xFFC9BF5A) else Color(0xFF769F86),
                 shape = RoundedCornerShape(16.dp)
             )
             .padding(top = 12.dp),
@@ -231,13 +228,34 @@ private fun TemperatureLineChart(
                 isDragEnabled = true
                 setScaleEnabled(true)
                 setPinchZoom(true)
+                setNoDataText("Sem dados para exibir")
                 legend.isEnabled = false
+
+                axisRight.isEnabled = true
+
+                xAxis.apply {
+                    position = XAxis.XAxisPosition.BOTTOM
+                    setDrawGridLines(true)
+                    granularity = 1f
+                    setLabelCount(6, false)
+                    labelRotationAngle = 0f
+                }
+
+                axisLeft.apply {
+                    setDrawGridLines(true)
+                }
+
+                axisRight.apply {
+                    setDrawGridLines(false)
+                }
 
                 val ds = LineDataSet(emptyList(), "Temperatura (°C)").apply {
                     setDrawCircles(false)
                     setDrawValues(false)
                     lineWidth = 2f
+                    mode = LineDataSet.Mode.LINEAR
                 }
+
                 data = LineData(ds)
             }
         },
@@ -246,32 +264,51 @@ private fun TemperatureLineChart(
             val ds = data.getDataSetByIndex(0) as? LineDataSet ?: return@AndroidView
 
             val lineColor = if (showHumidity) {
-                android.graphics.Color.parseColor("#C9BF5A") // Umidade
+                android.graphics.Color.parseColor("#C9BF5A")
             } else {
-                android.graphics.Color.parseColor("#769F86") // Temperatura
+                android.graphics.Color.parseColor("#769F86")
             }
 
             ds.color = lineColor
-
             ds.label = if (showHumidity) "Umidade (%)" else "Temperatura (°C)"
 
-            val entries = points.mapIndexed { index, p ->
-                val y = if (showHumidity) {
-                    p.umidade.toFloat()
-                } else {
-                    p.temperatura.toFloat()
-                }
+            val sortedPoints = points.sortedBy { parseChartTimeToEpochMillis(it.ts) ?: Long.MAX_VALUE }
+
+            val entries = sortedPoints.mapIndexedNotNull { index, p ->
+                val y = if (showHumidity) p.umidade.toFloat() else p.temperatura.toFloat()
                 Entry(index.toFloat(), y)
             }
 
             ds.values = entries
+
+            chart.xAxis.valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    val index = value.toInt()
+                    if (index < 0 || index >= sortedPoints.size) return ""
+                    return formatChartTime(sortedPoints[index].ts)
+                }
+            }
+
+            if (entries.isNotEmpty()) {
+                chart.xAxis.axisMinimum = 0f
+                chart.xAxis.axisMaximum = (entries.size - 1).toFloat()
+
+                val minY = entries.minOf { it.y }
+                val maxY = entries.maxOf { it.y }
+                val padding = 1f
+
+                chart.axisLeft.axisMinimum = minY - padding
+                chart.axisLeft.axisMaximum = maxY + padding
+                chart.axisRight.axisMinimum = minY - padding
+                chart.axisRight.axisMaximum = maxY + padding
+            }
+
             data.notifyDataChanged()
             chart.notifyDataSetChanged()
             chart.invalidate()
         }
     )
 }
-
 
 private fun millisToIsoSaoPaulo(millis: Long): String {
     val zone = ZoneId.of("America/Sao_Paulo")
@@ -282,12 +319,56 @@ private fun millisToIsoSaoPaulo(millis: Long): String {
 private fun formatPeriodPtBr(startIso: String?, stopIso: String?): String? {
     if (startIso.isNullOrBlank() || stopIso.isNullOrBlank()) return null
 
+    val zone = ZoneId.of("America/Sao_Paulo")
+    val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
+
     return try {
-        val start = OffsetDateTime.parse(startIso)
-        val stop = OffsetDateTime.parse(stopIso)
-        val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
+        val start = OffsetDateTime.parse(startIso).atZoneSameInstant(zone)
+        val stop = OffsetDateTime.parse(stopIso).atZoneSameInstant(zone)
         "Período: ${start.format(fmt)} → ${stop.format(fmt)}"
     } catch (_: Exception) {
-        "Período: $startIso → $stopIso"
+        try {
+            val start = Instant.parse(startIso).atZone(zone)
+            val stop = Instant.parse(stopIso).atZone(zone)
+            "Período: ${start.format(fmt)} → ${stop.format(fmt)}"
+        } catch (_: Exception) {
+            "Período: $startIso → $stopIso"
+        }
+    }
+}
+
+private fun formatChartTime(ts: String?): String {
+    if (ts.isNullOrBlank()) return ""
+
+    val zone = ZoneId.of("America/Sao_Paulo")
+
+    return try {
+        OffsetDateTime.parse(ts)
+            .atZoneSameInstant(zone)
+            .toLocalTime()
+            .format(DateTimeFormatter.ofPattern("HH:mm"))
+    } catch (_: Exception) {
+        try {
+            Instant.parse(ts)
+                .atZone(zone)
+                .toLocalTime()
+                .format(DateTimeFormatter.ofPattern("HH:mm"))
+        } catch (_: Exception) {
+            ""
+        }
+    }
+}
+
+private fun parseChartTimeToEpochMillis(ts: String?): Long? {
+    if (ts.isNullOrBlank()) return null
+
+    return try {
+        OffsetDateTime.parse(ts).toInstant().toEpochMilli()
+    } catch (_: Exception) {
+        try {
+            Instant.parse(ts).toEpochMilli()
+        } catch (_: Exception) {
+            null
+        }
     }
 }

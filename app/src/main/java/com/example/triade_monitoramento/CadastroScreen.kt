@@ -174,6 +174,7 @@ fun CadastroScreen(
                         val user = repo.cadastrar(
                             nome = nome.trim(),
                             cpf = cpf.trim(),
+                            email = null!!,
                             telefone = telefone.trim().ifBlank { null },
                             senha = senha
                         )

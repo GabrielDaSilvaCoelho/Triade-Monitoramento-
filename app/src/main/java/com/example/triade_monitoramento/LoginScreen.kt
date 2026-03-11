@@ -1,26 +1,24 @@
 package com.example.triade_monitoramento
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.VisualTransformation
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun LoginScreen(
@@ -29,52 +27,46 @@ fun LoginScreen(
     onLogado: (UsuarioRow) -> Unit,
     onIrParaCadastro: () -> Unit
 ) {
-    var cpf by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val corBotao = Color(0xFF293944)
-    val corTextoCriar = Color(0xFFD32F2F)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
         Spacer(Modifier.height(70.dp))
 
         Image(
             painter = painterResource(id = R.drawable.ic_logo),
             contentDescription = "Logo do app",
-            modifier = Modifier
-                .size(200.dp)
+            modifier = Modifier.size(200.dp)
         )
 
         Spacer(Modifier.height(32.dp))
 
         OutlinedTextField(
-            value = cpf,
-            onValueChange = { cpf = it },
-            label = { Text("Insira seu CPF", color = Color(0xFF769F86)) },
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Insira seu email", color = Color(0xFF769F86)) },
             singleLine = true,
-            textStyle = TextStyle(
-                color = Color(0xFF769F86)
-            ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-
+            textStyle = TextStyle(color = Color(0xFF769F86)),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             shape = RoundedCornerShape(8.dp),
-
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFF769F86),
                 unfocusedBorderColor = Color(0xFF769F86),
                 focusedLabelColor = Color(0xFF769F86),
                 cursorColor = Color(0xFF769F86)
             ),
-
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 1.dp)
@@ -87,20 +79,16 @@ fun LoginScreen(
             onValueChange = { senha = it },
             label = { Text("Insira sua senha", color = Color(0xFFC9BF5A)) },
             singleLine = true,
-            textStyle = TextStyle(
-                color = Color(0xFFC9BF5A)
-            ),
+            textStyle = TextStyle(color = Color(0xFFC9BF5A)),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-
+            visualTransformation = PasswordVisualTransformation(),
             shape = RoundedCornerShape(8.dp),
-
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFFC9BF5A),
                 unfocusedBorderColor = Color(0xFFC9BF5A),
                 focusedLabelColor = Color(0xFFC9BF5A),
                 cursorColor = Color(0xFFC9BF5A)
             ),
-
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 1.dp)
@@ -112,21 +100,23 @@ fun LoginScreen(
             shape = RoundedCornerShape(8.dp),
             onClick = {
                 msg = null
-                if (cpf.isBlank() || senha.isBlank()) {
-                    msg = "Preencha CPF e senha."
+
+                if (email.isBlank() || senha.isBlank()) {
+                    msg = "Preencha email e senha."
                     return@Button
                 }
 
                 loading = true
+
                 scope.launch {
                     try {
-                        val user = repo.login(cpf.trim(), senha)
+                        val user = repo.login(email.trim(), senha)
 
                         if (user != null) {
                             msg = "Login realizado com sucesso"
                             onLogado(user)
                         } else {
-                            msg = "CPF ou senha inválidos"
+                            msg = "Email ou senha inválidos"
                         }
                     } catch (e: Exception) {
                         msg = "Erro: ${e.localizedMessage}"
@@ -142,21 +132,18 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 1.dp)
                 .height(52.dp)
-
         ) {
-            Text(text = if (loading) "Entrando" else "Entrar", color = Color.White)
+            Text(
+                text = if (loading) "Entrando..." else "Entrar",
+                color = Color.White
+            )
         }
-        Spacer(Modifier.height(24.dp))
 
-        val context = LocalContext.current
+        Spacer(Modifier.height(24.dp))
 
         TextButton(
             onClick = {
-                val intent = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://html-final-zeta.vercel.app/")
-                )
-                context.startActivity(intent)
+                onIrParaCadastro()
             }
         ) {
             Text(
