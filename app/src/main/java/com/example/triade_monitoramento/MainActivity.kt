@@ -21,11 +21,11 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface {
                     var telaAtual by rememberSaveable {
-                        mutableStateOf(Tela.LOGIN)
+                        mutableStateOf(Tela.TEMPERATURE)
                     }
 
                     var userId by rememberSaveable {
-                        mutableStateOf("")
+                        mutableStateOf("TRD1001")
                     }
 
                     when (telaAtual) {
@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
                                         historyRange = "1h",
                                         historyEvery = "10s",
                                         pollLatestMs = 5_000L,
-                                        maxPoints = 300
+                                        maxPoints = 400
                                     )
                                 }
                             }
@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
                                             startIso = startIso,
                                             stopIso = stopIso,
                                             every = "10s",
-                                            maxPoints = 300
+                                            maxPoints = 400
                                         )
                                     }
                                 },
@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                                             historyRange = "1h",
                                             historyEvery = "10s",
                                             pollLatestMs = 5_000L,
-                                            maxPoints = 300
+                                            maxPoints = 400
                                         )
                                     }
                                 }
