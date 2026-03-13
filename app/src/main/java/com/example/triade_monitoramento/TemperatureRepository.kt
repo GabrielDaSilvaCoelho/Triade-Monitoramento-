@@ -1,5 +1,7 @@
 package com.example.triade_monitoramento
 
+
+
 class TemperatureRepository(
     private val api: TemperatureApi
 ) {

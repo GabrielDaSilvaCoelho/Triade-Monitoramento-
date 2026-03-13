@@ -1,10 +1,16 @@
 package com.example.triade_monitoramento
 
+
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,11 +39,16 @@ import java.util.Locale
 fun TemperatureScreen(
     background: Color = Color.White,
     state: TemperatureUiState,
+    currentSensor: UserSensor?,
+    availableSensors: List<UserSensor>,
+    onSelectSensor: (UserSensor) -> Unit,
+    onGoToSensorRegister: () -> Unit,
     onApplyPeriod: (startIso: String, stopIso: String) -> Unit,
     onBackToRealtime: () -> Unit
 ) {
     var showFilter by remember { mutableStateOf(false) }
     var showHumidity by remember { mutableStateOf(false) }
+    var sensorMenuExpanded by remember { mutableStateOf(false) }
 
     if (showFilter) {
         FiltroPeriodoScreen(
@@ -84,6 +95,20 @@ fun TemperatureScreen(
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(Modifier.padding(16.dp)) {
+
+                SensorSelector(
+                    currentSensor = currentSensor,
+                    availableSensors = availableSensors,
+                    expanded = sensorMenuExpanded,
+                    onExpandedChange = { sensorMenuExpanded = it },
+                    onSelectSensor = {
+                        sensorMenuExpanded = false
+                        onSelectSensor(it)
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 val temp = state.latestTemp
                 val hum = state.latestHum
 
@@ -164,13 +189,22 @@ fun TemperatureScreen(
                     }
 
                     OutlinedButton(
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC9BF5A)),
                         onClick = onBackToRealtime,
                         shape = RoundedCornerShape(8.dp),
                         enabled = !state.isLoading && hasFilterApplied
                     ) {
                         Text("Tempo real")
                     }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = onGoToSensorRegister,
+                    modifier = Modifier.wrapContentWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("cadastrar sensor")
                 }
 
                 val periodText = remember(state.periodStartIso, state.periodStopIso) {
@@ -200,6 +234,74 @@ fun TemperatureScreen(
                     points = state.chartPoints,
                     showHumidity = showHumidity
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SensorSelector(
+    currentSensor: UserSensor?,
+    availableSensors: List<UserSensor>,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelectSensor: (UserSensor) -> Unit
+) {
+    Column {
+        Text(
+            text = "Sensor:",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Box {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onExpandedChange(true) }
+                    .border(
+                        width = 1.dp,
+                        color = Color(0xFF769F86),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = currentSensor?.displayName() ?: "Selecione um sensor",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Icon(
+                    imageVector = if (expanded) {
+                        Icons.Filled.KeyboardArrowUp
+                    } else {
+                        Icons.Filled.KeyboardArrowDown
+                    },
+                    contentDescription = "Abrir lista de sensores"
+                )
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { onExpandedChange(false) },
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                if (availableSensors.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("Nenhum sensor cadastrado") },
+                        onClick = { onExpandedChange(false) }
+                    )
+                } else {
+                    availableSensors.forEach { sensor ->
+                        DropdownMenuItem(
+                            text = { Text(sensor.displayName()) },
+                            onClick = { onSelectSensor(sensor) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -252,7 +354,7 @@ private fun TemperatureLineChart(
                 val ds = LineDataSet(emptyList(), "Temperatura (°C)").apply {
                     setDrawCircles(false)
                     setDrawValues(false)
-                    lineWidth = 2f
+                    lineWidth = 2.50f
                     mode = LineDataSet.Mode.LINEAR
                 }
 
@@ -301,6 +403,7 @@ private fun TemperatureLineChart(
                 chart.axisLeft.axisMaximum = maxY + padding
                 chart.axisRight.axisMinimum = minY - padding
                 chart.axisRight.axisMaximum = maxY + padding
+                val visibleRange = 50f
             }
 
             data.notifyDataChanged()

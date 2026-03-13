@@ -14,7 +14,20 @@ class TemperatureViewModel(
     private val repo: TemperatureRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(TemperatureUiState())
+    private val _state = MutableStateFlow(
+        TemperatureUiState(
+            latestTemp = null,
+            latestHum = null,
+            latestTs = null,
+            chartPoints = emptyList(),
+            isLoading = false,
+            error = null,
+            periodStartIso = null,
+            periodStopIso = null,
+            sensores = emptyList(),
+            sensorSelecionado = null
+        )
+    )
     val state: StateFlow<TemperatureUiState> = _state
 
     private var loopJob: Job? = null
@@ -26,7 +39,7 @@ class TemperatureViewModel(
         pollLatestMs: Long = 5_000L,
         maxPoints: Int = 300
     ) {
-        if (loopJob?.isActive == true) return
+        stopStreaming()
 
         loopJob = viewModelScope.launch {
             _state.update {
@@ -40,7 +53,11 @@ class TemperatureViewModel(
 
             try {
                 val history = repo.history(id, historyRange, historyEvery)
-                val trimmed = if (history.size > maxPoints) history.takeLast(maxPoints) else history
+                val trimmed = if (history.size > maxPoints) {
+                    history.takeLast(maxPoints)
+                } else {
+                    history
+                }
 
                 val latest = repo.latest(id)
 
@@ -78,28 +95,41 @@ class TemperatureViewModel(
                             null
                         }
 
-                    _state.update { s ->
-                        val current = s.chartPoints
+                    _state.update { currentState ->
+                        val currentPoints = currentState.chartPoints
+
                         val appended =
-                            if (newPoint == null) current
-                            else if (current.isNotEmpty() && current.last().ts == newPoint.ts) current
-                            else current + newPoint
+                            if (newPoint == null) {
+                                currentPoints
+                            } else if (
+                                currentPoints.isNotEmpty() &&
+                                currentPoints.last().ts == newPoint.ts
+                            ) {
+                                currentPoints
+                            } else {
+                                currentPoints + newPoint
+                            }
 
                         val limited =
-                            if (appended.size > maxPoints) appended.takeLast(maxPoints)
-                            else appended
+                            if (appended.size > maxPoints) {
+                                appended.takeLast(maxPoints)
+                            } else {
+                                appended
+                            }
 
-                        s.copy(
-                            latestTemp = latest.temperatura ?: s.latestTemp,
-                            latestHum = latest.umidade ?: s.latestHum,
-                            latestTs = latest.ts ?: s.latestTs,
+                        currentState.copy(
+                            latestTemp = latest.temperatura ?: currentState.latestTemp,
+                            latestHum = latest.umidade ?: currentState.latestHum,
+                            latestTs = latest.ts ?: currentState.latestTs,
                             chartPoints = limited,
                             error = null
                         )
                     }
                 } catch (e: Exception) {
                     _state.update {
-                        it.copy(error = e.message ?: "Erro desconhecido")
+                        it.copy(
+                            error = e.message ?: "Erro desconhecido"
+                        )
                     }
                 }
 
@@ -123,20 +153,30 @@ class TemperatureViewModel(
         stopStreaming()
 
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            _state.update {
+                it.copy(
+                    isLoading = true,
+                    error = null
+                )
+            }
 
             try {
                 val history = repo.historyByPeriod(id, startIso, stopIso, every)
-                val trimmed = if (history.size > maxPoints) history.takeLast(maxPoints) else history
+                val trimmed = if (history.size > maxPoints) {
+                    history.takeLast(maxPoints)
+                } else {
+                    history
+                }
+
                 val last = trimmed.lastOrNull()
 
-                _state.update {
-                    it.copy(
+                _state.update { currentState ->
+                    currentState.copy(
                         isLoading = false,
                         chartPoints = trimmed,
-                        latestTemp = last?.temperatura ?: it.latestTemp,
-                        latestHum = last?.umidade ?: it.latestHum,
-                        latestTs = last?.ts ?: it.latestTs,
+                        latestTemp = last?.temperatura ?: currentState.latestTemp,
+                        latestHum = last?.umidade ?: currentState.latestHum,
+                        latestTs = last?.ts ?: currentState.latestTs,
                         error = null,
                         periodStartIso = startIso,
                         periodStopIso = stopIso
@@ -151,5 +191,28 @@ class TemperatureViewModel(
                 }
             }
         }
+    }
+
+    fun setSensores(
+        sensores: List<UserSensor>,
+        sensorSelecionado: UserSensor? = sensores.firstOrNull()
+    ) {
+        _state.update {
+            it.copy(
+                sensores = sensores,
+                sensorSelecionado = sensorSelecionado
+            )
+        }
+    }
+
+    fun selecionarSensor(sensor: UserSensor) {
+        _state.update {
+            it.copy(sensorSelecionado = sensor)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopStreaming()
     }
 }
