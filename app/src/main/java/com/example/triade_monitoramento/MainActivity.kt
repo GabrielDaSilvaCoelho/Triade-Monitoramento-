@@ -6,19 +6,21 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.collectAsState
+
 
 class MainActivity : ComponentActivity() {
 
     private enum class Tela {
         LOGIN,
         CADASTRO,
+        CADASTRO_SENSOR,
         TEMPERATURE
     }
 
@@ -33,17 +35,10 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(Tela.TEMPERATURE)
                     }
 
-                    // ID do usuário autenticado
                     var usuarioLogadoId by rememberSaveable {
                         mutableStateOf("TRD1001")
-
                     }
 
-                    /*
-                     * Lista de sensores da conta.
-                     * Aqui está mockada para compilar e funcionar.
-                     * Depois você troca por carregamento real do Supabase.
-                     */
                     var sensoresDaConta by remember {
                         mutableStateOf(
                             listOf(
@@ -53,7 +48,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // Sensor atualmente selecionado
                     var sensorSelecionado by remember {
                         mutableStateOf<UserSensor?>(sensoresDaConta.firstOrNull())
                     }
@@ -64,16 +58,6 @@ class MainActivity : ComponentActivity() {
                             LoginScreen(
                                 onLogado = { usuario ->
                                     usuarioLogadoId = usuario.id.orEmpty()
-
-                                    /*
-                                     * Aqui, futuramente, você deve carregar os sensores
-                                     * vinculados a esse usuário no Supabase.
-                                     *
-                                     * Exemplo:
-                                     * sensoresDaConta = buscarSensoresDoUsuario(usuarioLogadoId)
-                                     * sensorSelecionado = sensoresDaConta.firstOrNull()
-                                     */
-
                                     sensorSelecionado = sensoresDaConta.firstOrNull()
                                     telaAtual = Tela.TEMPERATURE
                                 },
@@ -94,16 +78,34 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        Tela.CADASTRO_SENSOR -> {
+                            CadastroSensorScreen(
+                                onSalvar = { novoSensor ->
+
+                                    // Exemplo: adiciona o sensor novo na lista local
+                                    val sensorCriado = UserSensor(
+                                        sensorId = novoSensor.sensorId,
+                                        name = novoSensor.nomeSensor
+                                    )
+
+                                    sensoresDaConta = sensoresDaConta + sensorCriado
+                                    sensorSelecionado = sensorCriado
+
+                                    // Depois você pode salvar no Supabase aqui
+                                    telaAtual = Tela.TEMPERATURE
+                                },
+                                onVoltar = {
+                                    telaAtual = Tela.TEMPERATURE
+                                }
+                            )
+                        }
+
                         Tela.TEMPERATURE -> {
                             val repo = TemperatureRepository(NetworkModule.temperatureApi)
                             val factory = TemperatureVmFactory(repo)
                             val vm: TemperatureViewModel = viewModel(factory = factory)
                             val state = vm.state.collectAsState().value
 
-                            /*
-                             * Sempre que o sensor selecionado mudar,
-                             * inicia o streaming dele.
-                             */
                             LaunchedEffect(sensorSelecionado?.sensorId) {
                                 val sensorId = sensorSelecionado?.sensorId.orEmpty()
 
@@ -126,13 +128,7 @@ class MainActivity : ComponentActivity() {
                                     sensorSelecionado = sensor
                                 },
                                 onGoToSensorRegister = {
-                                    /*
-                                     * Quando você criar a tela de vínculo de sensor,
-                                     * troque aqui para navegar até ela.
-                                     *
-                                     * Exemplo:
-                                     * telaAtual = Tela.CADASTRO_SENSOR
-                                     */
+                                    telaAtual = Tela.CADASTRO_SENSOR
                                 },
                                 onApplyPeriod = { startIso, stopIso ->
                                     val sensorId = sensorSelecionado?.sensorId.orEmpty()
