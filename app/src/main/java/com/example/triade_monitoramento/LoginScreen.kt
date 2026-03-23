@@ -2,6 +2,7 @@ package com.example.triade_monitoramento
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.launch
 
 @Composable
@@ -31,7 +33,6 @@ fun LoginScreen(
     var senha by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
-
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val corBotao = Color(0xFF293944)
@@ -113,6 +114,11 @@ fun LoginScreen(
                         val user = repo.login(email.trim(), senha)
 
                         if (user != null) {
+
+                            Session.userId = user.id
+
+                            Log.d("SESSION_DEBUG", "Session userId: ${Session.userId}")
+
                             msg = "Login realizado com sucesso"
                             onLogado(user)
                         } else {
@@ -151,7 +157,6 @@ fun LoginScreen(
                 color = Color(0xFFFF0000)
             )
         }
-
 
         msg?.let {
             Spacer(Modifier.height(8.dp))

@@ -1,27 +1,31 @@
 package com.example.triade_monitoramento
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.lifecycleScope
+import com.example.triade_monitoramento.data.repository.SensorRepository
+import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private enum class Tela {
         LOGIN,
         CADASTRO,
-        CADASTRO_SENSOR,
-        TEMPERATURE
+        TEMPERATURE,
+        CADASTRO_SENSOR
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,20 +36,15 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface {
                     var telaAtual by rememberSaveable {
-                        mutableStateOf(Tela.TEMPERATURE)
+                        mutableStateOf(Tela.LOGIN)
                     }
 
                     var usuarioLogadoId by rememberSaveable {
-                        mutableStateOf("TRD1001")
+                        mutableStateOf("")
                     }
 
                     var sensoresDaConta by remember {
-                        mutableStateOf(
-                            listOf(
-                                UserSensor(sensorId = "TRD1001", name = "Sensor Principal"),
-                                UserSensor(sensorId = "TRD1002", name = "Sensor Reserva")
-                            )
-                        )
+                        mutableStateOf<List<UserSensor>>(emptyList())
                     }
 
                     var sensorSelecionado by remember {
@@ -57,10 +56,25 @@ class MainActivity : ComponentActivity() {
                         Tela.LOGIN -> {
                             LoginScreen(
                                 onLogado = { usuario ->
-                                    usuarioLogadoId = usuario.id.orEmpty()
-                                    sensorSelecionado = sensoresDaConta.firstOrNull()
-                                    telaAtual = Tela.TEMPERATURE
-                                },
+
+                                    lifecycleScope.launch {
+
+                                        Session.userId = usuario.id
+
+                                        val repository = SensorRepository(SupabaseClientProvider.client)
+
+                                        val sensores = repository.buscarSensoresDoUsuario()
+
+                                        sensoresDaConta = sensores
+                                        sensorSelecionado = sensores.firstOrNull()
+
+                                        Log.d("DEBUG_USER", "Usuario logado ID: ${usuario.id}")
+                                        Log.d("DEBUG_SESSION", "Session ID: ${Session.userId}")
+
+                                        telaAtual = Tela.TEMPERATURE
+                                    }
+                                }
+                                ,
                                 onIrParaCadastro = {
                                     telaAtual = Tela.CADASTRO
                                 }
@@ -74,28 +88,6 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onIrParaLogin = {
                                     telaAtual = Tela.LOGIN
-                                }
-                            )
-                        }
-
-                        Tela.CADASTRO_SENSOR -> {
-                            CadastroSensorScreen(
-                                onSalvar = { novoSensor ->
-
-                                    // Exemplo: adiciona o sensor novo na lista local
-                                    val sensorCriado = UserSensor(
-                                        sensorId = novoSensor.sensorId,
-                                        name = novoSensor.nomeSensor
-                                    )
-
-                                    sensoresDaConta = sensoresDaConta + sensorCriado
-                                    sensorSelecionado = sensorCriado
-
-                                    // Depois você pode salvar no Supabase aqui
-                                    telaAtual = Tela.TEMPERATURE
-                                },
-                                onVoltar = {
-                                    telaAtual = Tela.TEMPERATURE
                                 }
                             )
                         }
@@ -157,6 +149,10 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
+                        }
+
+                        Tela.CADASTRO_SENSOR -> {
+                            CadastroSensorScreen()
                         }
                     }
                 }

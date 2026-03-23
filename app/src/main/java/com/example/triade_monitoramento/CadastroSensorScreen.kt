@@ -1,82 +1,46 @@
-package com.example.triade_monitoramento
+package com.example.triade_monitoramento.ui.sensor
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-
-data class SensorFormData(
-    val nomeSensor: String,
-    val sensorId: String,
-    val temperaturaMinima: String,
-    val temperaturaMaxima: String,
-    val emailAlerta: String,
-    val whatsappAlerta: String
-)
+import com.example.triade_monitoramento.SupabaseClient
+import com.example.triade_monitoramento.data.repository.SensorRepository
+import kotlinx.coroutines.launch
 
 @Composable
-fun CadastroSensorScreen(
-    onSalvar: (SensorFormData) -> Unit,
-    onVoltar: () -> Unit
-) {
-    var nomeSensor by rememberSaveable { mutableStateOf("") }
-    var sensorId by rememberSaveable { mutableStateOf("") }
-    var temperaturaMinima by rememberSaveable { mutableStateOf("") }
-    var temperaturaMaxima by rememberSaveable { mutableStateOf("") }
-    var emailAlerta by rememberSaveable { mutableStateOf("") }
-    var whatsappAlerta by rememberSaveable { mutableStateOf("") }
+fun CadastroSensorScreen() {
 
-    val scrollState = rememberScrollState()
+    var sensorId by remember { mutableStateOf("") }
+    var nomeSensor by remember { mutableStateOf("") }
+    var mensagem by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    val repository = remember {
+        SensorRepository(SupabaseClient.client)
+    }
+
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
             .padding(24.dp),
-        verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.CenterHorizontally
+        verticalArrangement = Arrangement.Center
     ) {
+
         Text(
-            text = "Cadastro de Sensor",
-            style = MaterialTheme.typography.headlineSmall
+            text = "Cadastrar Sensor",
+            style = MaterialTheme.typography.headlineMedium
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = nomeSensor,
-            onValueChange = { nomeSensor = it },
-            label = { Text("Nome do sensor") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
             value = sensorId,
             onValueChange = { sensorId = it },
-            label = { Text("ID do sensor") },
+            label = { Text("ID do Sensor") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -84,74 +48,61 @@ fun CadastroSensorScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value = temperaturaMinima,
-            onValueChange = { temperaturaMinima = it },
-            label = { Text("Temperatura mínima") },
+            value = nomeSensor,
+            onValueChange = { nomeSensor = it },
+            label = { Text("Nome do Sensor") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = temperaturaMaxima,
-            onValueChange = { temperaturaMaxima = it },
-            label = { Text("Temperatura máxima") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = emailAlerta,
-            onValueChange = { emailAlerta = it },
-            label = { Text("Email para alerta") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = whatsappAlerta,
-            onValueChange = { whatsappAlerta = it },
-            label = { Text("WhatsApp para alerta") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+            singleLine = true
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = {
-                onSalvar(
-                    SensorFormData(
-                        nomeSensor = nomeSensor,
-                        sensorId = sensorId,
-                        temperaturaMinima = temperaturaMinima,
-                        temperaturaMaxima = temperaturaMaxima,
-                        emailAlerta = emailAlerta,
-                        whatsappAlerta = whatsappAlerta
-                    )
-                )
+                scope.launch {
+                    mensagem = null
+
+                    if (sensorId.isBlank() || nomeSensor.isBlank()) {
+                        mensagem = "Preencha todos os campos"
+                        return@launch
+                    }
+
+                    loading = true
+
+                    val sucesso = repository.cadastrarSensor(sensorId, nomeSensor)
+
+                    if (sucesso) {
+                        mensagem = "Sensor cadastrado com sucesso!"
+                        sensorId = ""
+                        nomeSensor = ""
+                    } else {
+                        mensagem = "Erro ao cadastrar sensor"
+                    }
+
+                    loading = false
+                }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !loading
         ) {
-            Text("Salvar sensor")
+
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Cadastrar")
+            }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedButton(
-            onClick = onVoltar,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Voltar")
+        mensagem?.let {
+            Text(
+                text = it,
+                color = if (it.contains("sucesso")) Color(0xFF2E7D32) else Color.Red
+            )
         }
     }
 }

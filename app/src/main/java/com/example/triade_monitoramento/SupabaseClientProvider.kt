@@ -1,5 +1,6 @@
 package com.example.triade_monitoramento
 
+import com.example.triade_monitoramento.BuildConfig
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
