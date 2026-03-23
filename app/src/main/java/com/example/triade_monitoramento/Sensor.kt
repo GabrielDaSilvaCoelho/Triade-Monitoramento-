@@ -1,4 +1,4 @@
-package com.example.monitoramento.data.model
+package com.example.triade_monitoramento.data.model
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -11,3 +11,10 @@ data class SensorInsert(
     @SerialName("owner_id")
     val ownerId: String
 )
+@Serializable
+data class SensorDTO(
+    val id: String,
+    val nome: String?,
+    val owner_id: String
+)
+

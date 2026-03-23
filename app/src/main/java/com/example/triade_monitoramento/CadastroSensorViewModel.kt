@@ -1,10 +1,10 @@
-package com.example.monitoramento.ui.sensor
+package com.example.triade_monitoramento.ui.sensor
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.monitoramento.data.repository.SensorRepository
+import com.example.triade_monitoramento.data.repository.SensorRepository
+import com.example.triade_monitoramento.Session
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,9 +40,10 @@ class CadastroSensorViewModel(
             _uiState.update { it.copy(loading = true, erro = null, sucesso = false) }
 
             try {
-                val user = supabase.auth.currentUserOrNull()
+                val usuarioId = Session.userId
 
-                if (user == null) {
+
+                if (usuarioId == null) {
                     _uiState.update {
                         it.copy(
                             loading = false,
@@ -51,12 +52,6 @@ class CadastroSensorViewModel(
                     }
                     return@launch
                 }
-
-                repository.vincularSensor(
-                    sensorId = sensorId,
-                    nome = nome,
-                    ownerId = user.id
-                )
 
                 _uiState.update {
                     it.copy(

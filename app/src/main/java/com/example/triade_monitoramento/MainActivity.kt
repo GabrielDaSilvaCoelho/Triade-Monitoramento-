@@ -1,6 +1,7 @@
 package com.example.triade_monitoramento
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
@@ -13,13 +14,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.lifecycleScope
+import com.example.triade_monitoramento.data.repository.SensorRepository
+import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private enum class Tela {
         LOGIN,
         CADASTRO,
-        TEMPERATURE
+        TEMPERATURE,
+        CADASTRO_SENSOR
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,14 +36,14 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface {
                     var telaAtual by rememberSaveable {
-                        mutableStateOf(Tela.TEMPERATURE)
+                        mutableStateOf(Tela.LOGIN)
                     }
 
                     // ID do usuário autenticado
                     var usuarioLogadoId by rememberSaveable {
-                        mutableStateOf("TRD1001")
-
+                        mutableStateOf("")
                     }
+
 
                     /*
                      * Lista de sensores da conta.
@@ -45,13 +51,9 @@ class MainActivity : ComponentActivity() {
                      * Depois você troca por carregamento real do Supabase.
                      */
                     var sensoresDaConta by remember {
-                        mutableStateOf(
-                            listOf(
-                                UserSensor(sensorId = "TRD1001", name = "Sensor Principal"),
-                                UserSensor(sensorId = "TRD1002", name = "Sensor Reserva")
-                            )
-                        )
+                        mutableStateOf<List<UserSensor>>(emptyList())
                     }
+
 
                     // Sensor atualmente selecionado
                     var sensorSelecionado by remember {
@@ -63,20 +65,29 @@ class MainActivity : ComponentActivity() {
                         Tela.LOGIN -> {
                             LoginScreen(
                                 onLogado = { usuario ->
-                                    usuarioLogadoId = usuario.id.orEmpty()
 
-                                    /*
-                                     * Aqui, futuramente, você deve carregar os sensores
-                                     * vinculados a esse usuário no Supabase.
-                                     *
-                                     * Exemplo:
-                                     * sensoresDaConta = buscarSensoresDoUsuario(usuarioLogadoId)
-                                     * sensorSelecionado = sensoresDaConta.firstOrNull()
-                                     */
+                                    lifecycleScope.launch {
 
-                                    sensorSelecionado = sensoresDaConta.firstOrNull()
-                                    telaAtual = Tela.TEMPERATURE
-                                },
+                                        Session.userId = usuario.id
+
+                                        val repository = SensorRepository(SupabaseClientProvider.client)
+
+                                        val sensores = repository.buscarSensoresDoUsuario()
+
+
+                                        sensoresDaConta = sensores
+                                        sensorSelecionado = sensores.firstOrNull()
+
+                                        Log.d("DEBUG_USER", "Usuario logado ID: ${usuario.id}")
+                                        Log.d("DEBUG_SESSION", "Session ID: ${Session.userId}")
+
+
+
+
+                                        telaAtual = Tela.TEMPERATURE
+                                    }
+                                }
+                                ,
                                 onIrParaCadastro = {
                                     telaAtual = Tela.CADASTRO
                                 }
@@ -126,13 +137,7 @@ class MainActivity : ComponentActivity() {
                                     sensorSelecionado = sensor
                                 },
                                 onGoToSensorRegister = {
-                                    /*
-                                     * Quando você criar a tela de vínculo de sensor,
-                                     * troque aqui para navegar até ela.
-                                     *
-                                     * Exemplo:
-                                     * telaAtual = Tela.CADASTRO_SENSOR
-                                     */
+                                    telaAtual = Tela.CADASTRO_SENSOR
                                 },
                                 onApplyPeriod = { startIso, stopIso ->
                                     val sensorId = sensorSelecionado?.sensorId.orEmpty()
@@ -161,6 +166,10 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
+                        }
+
+                        Tela.CADASTRO_SENSOR -> {
+                            CadastroSensorScreen()
                         }
                     }
                 }

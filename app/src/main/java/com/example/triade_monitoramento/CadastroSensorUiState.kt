@@ -1,4 +1,4 @@
-package com.example.monitoramento.ui.sensor
+package com.example.triade_monitoramento.ui.sensor
 
 data class CadastroSensorUiState(
     val sensorId: String = "",

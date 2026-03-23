@@ -7,6 +7,8 @@ import io.github.jan.supabase.postgrest.rpc
 class UsuarioRepository {
     private val client = SupabaseClientProvider.client
 
+
+
     suspend fun cadastrar(nome: String, email: String, cpf: String, telefone: String?, senha: String): UsuarioRow {
         val result = client.postgrest.rpc(
             function = "register_usuario",

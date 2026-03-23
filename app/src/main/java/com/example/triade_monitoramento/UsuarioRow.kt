@@ -10,3 +10,4 @@ data class UsuarioRow(
     val cpf: String,
     val telefone: String? = null
 )
+

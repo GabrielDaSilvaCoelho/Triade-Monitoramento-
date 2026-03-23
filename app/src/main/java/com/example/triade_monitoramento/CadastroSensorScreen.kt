@@ -1,48 +1,30 @@
-package com.example.monitoramento.ui.sensor
+package com.example.triade_monitoramento.ui.sensor
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.example.triade_monitoramento.SupabaseClient
+import com.example.triade_monitoramento.data.repository.SensorRepository
+import kotlinx.coroutines.launch
 
 @Composable
-fun CadastroSensorScreen(
-    viewModel: CadastroSensorViewModel,
-    onSensorVinculado: () -> Unit
-) {
-    val state by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
+fun CadastroSensorScreen() {
 
-    LaunchedEffect(state.erro) {
-        state.erro?.let { mensagem ->
-            snackbarHostState.showSnackbar(mensagem)
-        }
+    var sensorId by remember { mutableStateOf("") }
+    var nomeSensor by remember { mutableStateOf("") }
+    var mensagem by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
+
+    // 🔥 Repository usando Supabase
+    val repository = remember {
+        SensorRepository(SupabaseClient.client)
     }
 
-    LaunchedEffect(state.sucesso) {
-        if (state.sucesso) {
-            snackbarHostState.showSnackbar("Sensor vinculado com sucesso")
-            viewModel.limparSucesso()
-            onSensorVinculado()
-        }
-    }
+
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -50,47 +32,84 @@ fun CadastroSensorScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
+
         Text(
-            text = "Vincular sensor",
-            style = MaterialTheme.typography.headlineSmall
+            text = "Cadastrar Sensor",
+            style = MaterialTheme.typography.headlineMedium
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
+        // 🔹 Campo ID
         OutlinedTextField(
-            value = state.sensorId,
-            onValueChange = viewModel::onSensorIdChange,
-            label = { Text("ID do sensor") },
+            value = sensorId,
+            onValueChange = { sensorId = it },
+            label = { Text("ID do Sensor") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // 🔹 Campo Nome
         OutlinedTextField(
-            value = state.nome,
-            onValueChange = viewModel::onNomeChange,
-            label = { Text("Nome do sensor (opcional)") },
+            value = nomeSensor,
+            onValueChange = { nomeSensor = it },
+            label = { Text("Nome do Sensor") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { viewModel.vincularSensor() },
+            onClick = {
+                scope.launch {
+                    mensagem = null
+
+                    // 🔴 Validação
+                    if (sensorId.isBlank() || nomeSensor.isBlank()) {
+                        mensagem = "Preencha todos os campos"
+                        return@launch
+                    }
+
+                    loading = true
+
+                    // ✅ CHAMADA CORRETA
+                    val sucesso = repository.cadastrarSensor(sensorId, nomeSensor)
+
+                    if (sucesso) {
+                        mensagem = "Sensor cadastrado com sucesso!"
+                        sensorId = ""
+                        nomeSensor = ""
+                    } else {
+                        mensagem = "Erro ao cadastrar sensor"
+                    }
+
+                    loading = false
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !state.loading
+            enabled = !loading
         ) {
-            if (state.loading) {
-                CircularProgressIndicator()
+
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
             } else {
-                Text("Vincular")
+                Text("Cadastrar")
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        SnackbarHost(hostState = snackbarHostState)
+        mensagem?.let {
+            Text(
+                text = it,
+                color = if (it.contains("sucesso")) Color(0xFF2E7D32) else Color.Red
+            )
+        }
     }
 }
