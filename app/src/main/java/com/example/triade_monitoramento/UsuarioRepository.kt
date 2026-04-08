@@ -7,19 +7,30 @@ import io.github.jan.supabase.postgrest.rpc
 class UsuarioRepository {
     private val client = SupabaseClientProvider.client
 
-    suspend fun cadastrar(nome: String, email: String, cpf: String, telefone: String?, senha: String): UsuarioRow {
-        val result = client.postgrest.rpc(
-            function = "register_usuario",
-            parameters = mapOf(
-                "p_nome" to nome,
-                "p_cpf" to cpf,
-                "p_email" to "",
-                "p_telefone" to (telefone ?: ""),
-                "p_senha" to senha
+    suspend fun cadastrar(
+        nome: String,
+        email: String,
+        cpf: String,
+        telefone: String?,
+        senha: String
+    ): UsuarioRow {
+
+        val result = client
+            .from("usuario")
+            .insert(
+                mapOf(
+                    "nome" to nome,
+                    "cpf" to cpf,
+                    "email" to email,
+                    "telefone" to telefone,
+                    "senha_hash" to senha
+                )
             )
-        )
-        return result.decodeSingle()
+            .decodeSingle<UsuarioRow>()
+
+        return result
     }
+
 
     suspend fun login(email: String, senha: String): UsuarioRow? {
         val result = client.postgrest.rpc(

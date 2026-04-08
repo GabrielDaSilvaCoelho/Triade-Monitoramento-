@@ -1,6 +1,5 @@
 package com.example.triade_monitoramento
 
-
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.foundation.Image
