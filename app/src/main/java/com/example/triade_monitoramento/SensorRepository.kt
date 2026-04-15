@@ -6,10 +6,13 @@ import com.example.triade_monitoramento.UserSensor
 import com.example.triade_monitoramento.data.model.SensorDTO
 import com.example.triade_monitoramento.data.model.SensorInsert
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.Serializable
 
 class SensorRepository(
+
+
     private val supabase: SupabaseClient
 ) {
 

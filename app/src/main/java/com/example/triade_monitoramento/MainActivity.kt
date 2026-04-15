@@ -257,6 +257,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+
+                        Tela.CADASTRO_SENSOR -> {
+                            CadastroSensorScreen()
+                        }
                     }
                 }
             }
