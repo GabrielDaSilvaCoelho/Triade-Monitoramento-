@@ -26,6 +26,7 @@ fun CadastroScreen(
 ) {
     var nome by remember { mutableStateOf("") }
     var cpf by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var telefone by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf<String?>(null) }
@@ -64,7 +65,7 @@ fun CadastroScreen(
             textStyle = TextStyle(
                 color = Color(0xFF769F86)
             ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
 
             shape = RoundedCornerShape(8.dp),
 
@@ -109,14 +110,14 @@ fun CadastroScreen(
         Spacer(Modifier.height(8.dp))
 
         OutlinedTextField(
-            value = telefone,
-            onValueChange = { nome = it },
-            label = { Text("telefone(opcional)", color = Color(0xFF769F86)) },
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email", color = Color(0xFF769F86)) },
             singleLine = true,
             textStyle = TextStyle(
                 color = Color(0xFF769F86)
             ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
 
             shape = RoundedCornerShape(8.dp),
 
@@ -135,21 +136,47 @@ fun CadastroScreen(
         Spacer(Modifier.height(8.dp))
 
         OutlinedTextField(
-            value = senha,
-            onValueChange = { senha = it },
-            label = { Text("Senha", color = Color(0xFFC9BF5A)) },
+            value = telefone,
+            onValueChange = { telefone = it },
+            label = { Text("telefone", color = Color(0xFFC9BF5A)) },
             singleLine = true,
             textStyle = TextStyle(
                 color = Color(0xFFC9BF5A)
             ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+
             shape = RoundedCornerShape(8.dp),
+
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFFC9BF5A),
                 unfocusedBorderColor = Color(0xFFC9BF5A),
                 focusedLabelColor = Color(0xFFC9BF5A),
                 cursorColor = Color(0xFFC9BF5A)
+            ),
+
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 1.dp)
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = senha,
+            onValueChange = { senha = it },
+            label = { Text("Senha", color = Color(0xFF769F86)) },
+            singleLine = true,
+            textStyle = TextStyle(
+                color = Color(0xFF769F86)
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            visualTransformation = PasswordVisualTransformation(),
+            shape = RoundedCornerShape(8.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF769F86),
+                unfocusedBorderColor = Color(0xFF769F86),
+                focusedLabelColor = Color(0xFF769F86),
+                cursorColor = Color(0xFF769F86)
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -174,7 +201,7 @@ fun CadastroScreen(
                         val user = repo.cadastrar(
                             nome = nome.trim(),
                             cpf = cpf.trim(),
-                            email = null!!,
+                            email = email.trim().ifBlank { null }.toString(),
                             telefone = telefone.trim().ifBlank { null },
                             senha = senha
                         )

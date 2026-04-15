@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,6 +19,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.launch
@@ -151,17 +153,18 @@ fun LoginScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        TextButton(
-            onClick = {
-                onIrParaCadastro()
+        Text(
+            text = "Não possui conta? Criar conta",
+            color = Color(0xFFFF0000),
+            textDecoration = TextDecoration.Underline,
+            modifier = Modifier.clickable {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://htmlcadastro.vercel.app/")
+                )
+                context.startActivity(intent)
             }
-        ) {
-            Text(
-                text = "Não possui conta? Criar conta",
-                color = Color(0xFFFF0000)
-            )
-        }
-
+        )
 
         msg?.let {
             Spacer(Modifier.height(8.dp))

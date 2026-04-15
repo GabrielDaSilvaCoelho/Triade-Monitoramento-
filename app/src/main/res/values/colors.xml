@@ -5,47 +5,52 @@
     <color name="white">#FFFFFFFF</color>
     <color name="gray_100">#F5F5F5</color>
     <color name="gray_200">#E6E6E6</color>
-    <color name="gray_300">#E0E0E0</color><!-- nova -->
+    <color name="gray_300">#E0E0E0</color>
     <color name="gray_500">#9E9E9E</color>
-    <color name="gray_700">#616161</color> <!-- nova -->
+    <color name="gray_700">#616161</color>
     <color name="gray_900">#212121</color>
-    <color name="button_ripple_gray">#33FFFFFF</color> <!-- branco bem translúcido -->
+    <color name="button_ripple_gray">#33FFFFFF</color>
 
+    <!-- Cores do projeto Triade -->
+    <color name="triade_green">#769F86</color>
+    <color name="triade_dark_green">#4E6B5A</color>
+    <color name="triade_light">#E8F1EC</color>
+    <color name="triade_white">#FFFFFFFF</color>
 
     <!-- Primárias -->
-    <color name="red_300">#E57373</color> <!-- nova -->
+    <color name="red_300">#E57373</color>
     <color name="red_500">#F44336</color>
-    <color name="red_700">#D32F2F</color> <!-- nova -->
+    <color name="red_700">#D32F2F</color>
 
     <color name="blue_100">#BBDEFB</color>
-    <color name="blue_300">#64B5F6</color> <!-- nova -->
+    <color name="blue_300">#64B5F6</color>
     <color name="blue_500">#2196F3</color>
-    <color name="blue_700">#1976D2</color> <!-- nova -->
+    <color name="blue_700">#1976D2</color>
 
-    <color name="green_300">#81C784</color> <!-- nova -->
+    <color name="green_300">#81C784</color>
     <color name="green_500">#4CAF50</color>
-    <color name="green_700">#388E3C</color> <!-- nova -->
+    <color name="green_700">#388E3C</color>
 
-    <color name="purple_300">#BA68C8</color> <!-- nova -->
+    <color name="purple_300">#BA68C8</color>
     <color name="purple_500">#9C27B0</color>
-    <color name="purple_700">#7B1FA2</color> <!-- nova -->
+    <color name="purple_700">#7B1FA2</color>
 
     <!-- Acentos -->
-    <color name="amber_300">#FFD54F</color> <!-- nova -->
+    <color name="amber_300">#FFD54F</color>
     <color name="amber_500">#FFC107</color>
 
-    <color name="teal_300">#4DB6AC</color> <!-- nova -->
+    <color name="teal_300">#4DB6AC</color>
     <color name="teal_500">#009688</color>
 
-    <color name="pink_300">#F06292</color> <!-- nova -->
+    <color name="pink_300">#F06292</color>
     <color name="pink_500">#E91E63</color>
-    <color name="pink_700">#C2185B</color> <!-- nova -->
+    <color name="pink_700">#C2185B</color>
 
     <!-- Transparência comum -->
     <color name="black_50">#80000000</color>
     <color name="white_50">#80FFFFFF</color>
 
-    <!-- Suporte para erros, sucesso e avisos -->
+    <!-- Estados -->
     <color name="error_red">#B00020</color>
     <color name="success_green">#388E3C</color>
     <color name="warning_amber">#FFA000</color>

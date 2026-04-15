@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.OffsetDateTime
 
 class TemperatureViewModel(
     private val repo: TemperatureRepository
@@ -37,7 +39,7 @@ class TemperatureViewModel(
         historyRange: String = "1h",
         historyEvery: String = "10s",
         pollLatestMs: Long = 5_000L,
-        maxPoints: Int = 300
+        maxPoints: Int? = null
     ) {
         stopStreaming()
 
@@ -53,12 +55,7 @@ class TemperatureViewModel(
 
             try {
                 val history = repo.history(id, historyRange, historyEvery)
-                val trimmed = if (history.size > maxPoints) {
-                    history.takeLast(maxPoints)
-                } else {
-                    history
-                }
-
+                val preparedHistory = applyLimit(history, maxPoints)
                 val latest = repo.latest(id)
 
                 _state.update {
@@ -67,7 +64,7 @@ class TemperatureViewModel(
                         latestTemp = latest.temperatura,
                         latestHum = latest.umidade,
                         latestTs = latest.ts,
-                        chartPoints = trimmed,
+                        chartPoints = preparedHistory,
                         error = null
                     )
                 }
@@ -110,18 +107,13 @@ class TemperatureViewModel(
                                 currentPoints + newPoint
                             }
 
-                        val limited =
-                            if (appended.size > maxPoints) {
-                                appended.takeLast(maxPoints)
-                            } else {
-                                appended
-                            }
+                        val prepared = applyLimit(appended, maxPoints)
 
                         currentState.copy(
                             latestTemp = latest.temperatura ?: currentState.latestTemp,
                             latestHum = latest.umidade ?: currentState.latestHum,
                             latestTs = latest.ts ?: currentState.latestTs,
-                            chartPoints = limited,
+                            chartPoints = prepared,
                             error = null
                         )
                     }
@@ -147,8 +139,8 @@ class TemperatureViewModel(
         id: String,
         startIso: String,
         stopIso: String,
-        every: String = "10s",
-        maxPoints: Int = 300
+        every: String? = null,
+        maxPoints: Int? = null
     ) {
         stopStreaming()
 
@@ -161,19 +153,15 @@ class TemperatureViewModel(
             }
 
             try {
-                val history = repo.historyByPeriod(id, startIso, stopIso, every)
-                val trimmed = if (history.size > maxPoints) {
-                    history.takeLast(maxPoints)
-                } else {
-                    history
-                }
-
-                val last = trimmed.lastOrNull()
+                val resolvedEvery = every ?: suggestEveryForPeriod(startIso, stopIso)
+                val history = repo.historyByPeriod(id, startIso, stopIso, resolvedEvery)
+                val preparedHistory = applyLimit(history, maxPoints)
+                val last = preparedHistory.lastOrNull()
 
                 _state.update { currentState ->
                     currentState.copy(
                         isLoading = false,
-                        chartPoints = trimmed,
+                        chartPoints = preparedHistory,
                         latestTemp = last?.temperatura ?: currentState.latestTemp,
                         latestHum = last?.umidade ?: currentState.latestHum,
                         latestTs = last?.ts ?: currentState.latestTs,
@@ -214,5 +202,32 @@ class TemperatureViewModel(
     override fun onCleared() {
         super.onCleared()
         stopStreaming()
+    }
+
+    private fun applyLimit(
+        points: List<TemperaturePointDto>,
+        maxPoints: Int?
+    ): List<TemperaturePointDto> {
+        if (maxPoints == null || maxPoints <= 0) return points
+        return if (points.size > maxPoints) points.takeLast(maxPoints) else points
+    }
+
+    private fun suggestEveryForPeriod(startIso: String, stopIso: String): String {
+        return try {
+            val start = OffsetDateTime.parse(startIso)
+            val stop = OffsetDateTime.parse(stopIso)
+            val minutes = Duration.between(start, stop).toMinutes().coerceAtLeast(1)
+
+            when {
+                minutes <= 120 -> "10s"
+                minutes <= 360 -> "30s"
+                minutes <= 720 -> "1m"
+                minutes <= 1440 -> "5m"
+                minutes <= 10080 -> "15m"
+                else -> "1h"
+            }
+        } catch (_: Exception) {
+            "1m"
+        }
     }
 }
