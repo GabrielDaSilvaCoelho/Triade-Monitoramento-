@@ -1,22 +1,19 @@
-package com.example.triade_monitoramento.ui.sensor
+package com.example.triade_monitoramento
 
-import android.app.Activity
+
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,69 +21,61 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.triade_monitoramento.ScreenContainer
 import com.example.triade_monitoramento.SupabaseClientProvider
 import com.example.triade_monitoramento.data.repository.SensorRepository
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import kotlinx.coroutines.launch
 
 private val TriadeGreen = Color(0xFF769F86)
+private val TriadeRed = Color(0xFFC75C5C)
+private val TriadeRedLight = Color(0xFFFFF3F3)
 private val SuccessGreen = Color(0xFF2E7D32)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CadastroSensorScreen(
-    onBack: () -> Unit
+fun SensorConfigScreen(
+    sensorId: String,
+    nomeInicial: String,
+    tempMaxInicial: Double?,
+    tempMinInicial: Double?,
+    onBack: () -> Unit,
+    onSensorExcluido: () -> Unit
 ) {
-    var sensorId by remember { mutableStateOf("") }
-    var nomeSensor by remember { mutableStateOf("") }
-    var temperaturaMaxima by remember { mutableStateOf("") }
-    var temperaturaMinima by remember { mutableStateOf("") }
+    var nomeSensor by remember { mutableStateOf(nomeInicial) }
+    var temperaturaMaxima by remember {
+        mutableStateOf(tempMaxInicial?.toString()?.replace(".", ",") ?: "")
+    }
+    var temperaturaMinima by remember {
+        mutableStateOf(tempMinInicial?.toString()?.replace(".", ",") ?: "")
+    }
+
     var mensagem by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(false) }
+    var loadingSalvar by remember { mutableStateOf(false) }
+    var loadingExcluir by remember { mutableStateOf(false) }
 
     val repository = remember {
         SensorRepository(SupabaseClientProvider.client)
     }
 
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val activity = context as? Activity
-
-    val scannerOptions = remember {
-        GmsBarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-            .build()
-    }
-
-    val scanner = remember {
-        GmsBarcodeScanning.getClient(context, scannerOptions)
-    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Cadastrar Sensor") },
+                title = { Text("Configurar Sensor") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -111,65 +100,21 @@ fun CadastroSensorScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Cadastre o sensor e defina os limites de alerta",
+                    text = "Edite os dados do sensor e os limites para disparo de alertas.",
                     style = MaterialTheme.typography.bodyMedium
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Row(
+                OutlinedTextField(
+                    value = sensorId,
+                    onValueChange = { },
+                    label = { Text("ID do Sensor") },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        value = sensorId,
-                        onValueChange = { sensorId = it },
-                        label = { Text("ID do Sensor") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = campoColors()
-                    )
-
-                    OutlinedButton(
-                        onClick = {
-                            if (activity == null) {
-                                mensagem = "Não foi possível abrir a câmera"
-                                return@OutlinedButton
-                            }
-
-                            scanner.startScan()
-                                .addOnSuccessListener { barcode ->
-                                    sensorId = barcode.rawValue.orEmpty()
-                                    mensagem = if (sensorId.isNotBlank()) {
-                                        "QR Code lido com sucesso!"
-                                    } else {
-                                        "QR Code sem conteúdo válido"
-                                    }
-                                }
-                                .addOnCanceledListener {
-                                    mensagem = "Leitura cancelada"
-                                }
-                                .addOnFailureListener { e ->
-                                    mensagem = e.message ?: "Erro ao ler QR Code"
-                                }
-                        },
-                        modifier = Modifier.height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = TriadeGreen
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "Ler QR Code",
-                            tint = TriadeGreen
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text("Ler QR", color = TriadeGreen)
-                    }
-                }
+                    readOnly = true,
+                    singleLine = true,
+                    colors = campoColors()
+                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -214,12 +159,11 @@ fun CadastroSensorScreen(
                             mensagem = null
 
                             if (
-                                sensorId.isBlank() ||
                                 nomeSensor.isBlank() ||
                                 temperaturaMaxima.isBlank() ||
                                 temperaturaMinima.isBlank()
                             ) {
-                                mensagem = "Preencha todos os campos"
+                                mensagem = "Preencha todos os campos."
                                 return@launch
                             }
 
@@ -227,67 +171,102 @@ fun CadastroSensorScreen(
                             val tempMin = temperaturaMinima.replace(",", ".").toDoubleOrNull()
 
                             if (tempMax == null || tempMin == null) {
-                                mensagem = "Informe valores numéricos válidos para as temperaturas"
+                                mensagem = "Informe valores numéricos válidos."
                                 return@launch
                             }
 
                             if (tempMin >= tempMax) {
-                                mensagem = "A temperatura mínima deve ser menor que a máxima"
+                                mensagem = "A temperatura mínima deve ser menor que a máxima."
                                 return@launch
                             }
 
-                            loading = true
+                            loadingSalvar = true
 
-                            val sucesso = repository.cadastrarSensor(
-                                id = sensorId.trim(),
+                            val sucesso = repository.atualizarConfiguracaoSensor(
+                                sensorId = sensorId,
                                 nome = nomeSensor.trim(),
                                 tempLimitMax = tempMax,
                                 tempLimitMin = tempMin
                             )
 
-                            if (sucesso) {
-                                mensagem = "Sensor cadastrado com sucesso!"
-                                sensorId = ""
-                                nomeSensor = ""
-                                temperaturaMaxima = ""
-                                temperaturaMinima = ""
+                            mensagem = if (sucesso) {
+                                "Configuração salva com sucesso!"
                             } else {
-                                mensagem = "Erro ao cadastrar sensor. Caso o problema persista, contate a equipe técnica."
+                                "Erro ao salvar configuração. Caso o problema persista, contate a equipe técnica."
                             }
 
-                            loading = false
+                            loadingSalvar = false
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = !loading,
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = !loadingSalvar && !loadingExcluir,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = TriadeGreen,
                         contentColor = Color.White,
                         disabledContainerColor = Color.Gray
                     )
                 ) {
-                    if (loading) {
+                    if (loadingSalvar) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.height(20.dp),
                             strokeWidth = 2.dp,
                             color = Color.White
                         )
                     } else {
-                        Text("Cadastrar")
+                        Text("Salvar alterações")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            mensagem = null
+                            loadingExcluir = true
+
+                            val sucesso = repository.excluirSensorDaConta(sensorId)
+
+                            loadingExcluir = false
+
+                            if (sucesso) {
+                                onSensorExcluido()
+                            } else {
+                                mensagem = "Erro ao excluir sensor. Caso o problema persista, contate a equipe técnica."
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = !loadingSalvar && !loadingExcluir,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = TriadeRed
+                    )
+                ) {
+                    if (loadingExcluir) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.height(20.dp),
+                            strokeWidth = 2.dp,
+                            color = TriadeRed
+                        )
+                    } else {
+                        Text("Excluir sensor da conta")
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 mensagem?.let {
+                    val cor = when {
+                        it.contains("sucesso", ignoreCase = true) -> SuccessGreen
+                        else -> TriadeRed
+                    }
+
                     Text(
                         text = it,
-                        color = if (it.contains("sucesso", ignoreCase = true)) {
-                            SuccessGreen
-                        } else {
-                            Color.Red
-                        }
+                        color = cor,
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
 
