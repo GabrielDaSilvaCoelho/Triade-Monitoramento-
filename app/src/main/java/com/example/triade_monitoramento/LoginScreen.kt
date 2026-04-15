@@ -156,7 +156,7 @@ fun LoginScreen(
             modifier = Modifier.clickable {
                 val intent = Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse("https://app-htmlll.vercel.app/")
+                    Uri.parse("https://htmlcadastro.vercel.app/")
                 )
                 context.startActivity(intent)
             }

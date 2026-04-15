@@ -1,7 +1,5 @@
 package com.example.triade_monitoramento
 
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,7 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,6 +32,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun TemperatureScreen(
@@ -65,12 +65,7 @@ fun TemperatureScreen(
 
     val hasFilterApplied = state.periodStartIso != null && state.periodStopIso != null
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(background)
-            .padding(16.dp)
-    ) {
+    ScreenContainer(background = background){
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(id = R.drawable.ic_logo),
@@ -203,7 +198,7 @@ fun TemperatureScreen(
                     modifier = Modifier.wrapContentWidth(),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("cadastrar sensor")
+                    Text("Cadastrar sensor")
                 }
 
                 val periodText = remember(state.periodStartIso, state.periodStopIso) {
@@ -326,9 +321,15 @@ private fun TemperatureLineChart(
             LineChart(ctx).apply {
                 description.isEnabled = false
                 setTouchEnabled(true)
-                isDragEnabled = true
+                setDragEnabled(true)
                 setScaleEnabled(true)
-                setPinchZoom(true)
+                setScaleXEnabled(true)
+                setScaleYEnabled(false)
+                setPinchZoom(false)
+                extraBottomOffset = 16f
+                minOffset = 12f
+                isDoubleTapToZoomEnabled = true
+                setDragDecelerationEnabled(true)
                 setNoDataText("Sem dados para exibir")
                 legend.isEnabled = false
 
@@ -338,8 +339,11 @@ private fun TemperatureLineChart(
                     position = XAxis.XAxisPosition.BOTTOM
                     setDrawGridLines(true)
                     granularity = 1f
-                    setLabelCount(6, false)
-                    labelRotationAngle = 0f
+                    setLabelCount(3, true)
+                    labelRotationAngle = -30f
+                    textSize = 9f
+                    yOffset = 8f
+                    setAvoidFirstLastClipping(true)
                 }
 
                 axisLeft.apply {
@@ -353,8 +357,9 @@ private fun TemperatureLineChart(
                 val ds = LineDataSet(emptyList(), "Temperatura (°C)").apply {
                     setDrawCircles(false)
                     setDrawValues(false)
-                    lineWidth = 2.50f
+                    lineWidth = 2.5f
                     mode = LineDataSet.Mode.LINEAR
+                    highLightColor = android.graphics.Color.GRAY
                 }
 
                 data = LineData(ds)
@@ -384,9 +389,9 @@ private fun TemperatureLineChart(
 
             chart.xAxis.valueFormatter = object : ValueFormatter() {
                 override fun getFormattedValue(value: Float): String {
-                    val index = value.toInt()
+                    val index = value.roundToInt()
                     if (index < 0 || index >= sortedPoints.size) return ""
-                    return formatChartTime(sortedPoints[index].ts)
+                    return formatChartTimeSeparated(sortedPoints[index].ts)
                 }
             }
 
@@ -396,13 +401,15 @@ private fun TemperatureLineChart(
 
                 val minY = entries.minOf { it.y }
                 val maxY = entries.maxOf { it.y }
-                val padding = 1f
+                val padding = ((maxY - minY) * 0.10f).coerceAtLeast(1f)
 
                 chart.axisLeft.axisMinimum = minY - padding
                 chart.axisLeft.axisMaximum = maxY + padding
                 chart.axisRight.axisMinimum = minY - padding
                 chart.axisRight.axisMaximum = maxY + padding
-                val visibleRange = 50f
+
+                chart.fitScreen()
+                chart.xAxis.setLabelCount(calculateLabelCountForFullRange(sortedPoints), true)
             }
 
             data.notifyDataChanged()
@@ -410,6 +417,70 @@ private fun TemperatureLineChart(
             chart.invalidate()
         }
     )
+}
+private fun calculateLabelCountForFullRange(points: List<TemperaturePointDto>): Int {
+    val size = points.size
+
+    return when {
+        size <= 20 -> 3
+        size <= 60 -> 4
+        size <= 180 -> 4
+        size <= 720 -> 5
+        else -> 5
+    }
+}
+
+private fun formatChartTimeCompact(ts: String?, totalPoints: Int): String {
+    if (ts.isNullOrBlank()) return " "
+
+    val zone = ZoneId.of("America/Sao_Paulo")
+
+    val pattern = when {
+        totalPoints <= 120 -> "HH:mm"
+        totalPoints <= 1440 -> "HH:mm"
+        else -> "dd/MM"
+    }
+
+    return try {
+        OffsetDateTime.parse(ts)
+            .atZoneSameInstant(zone)
+            .format(DateTimeFormatter.ofPattern(pattern))
+    } catch (_: Exception) {
+        try {
+            Instant.parse(ts)
+                .atZone(zone)
+                .format(DateTimeFormatter.ofPattern(pattern))
+        } catch (_: Exception) {
+            ""
+        }
+    }
+}
+
+private fun calculateInitialVisiblePoints(points: List<TemperaturePointDto>): Int {
+    if (points.isEmpty()) return 10
+    if (points.size <= 10) return points.size.coerceAtLeast(1)
+
+    val first = parseChartTimeToEpochMillis(points.firstOrNull()?.ts)
+    val last = parseChartTimeToEpochMillis(points.lastOrNull()?.ts)
+
+    if (first == null || last == null || last <= first) {
+        return points.size.coerceAtMost(60).coerceAtLeast(10)
+    }
+
+    val totalDurationMinutes = ((last - first) / 60000.0).coerceAtLeast(1.0)
+    val avgMinutesPerPoint = totalDurationMinutes / (points.size - 1).coerceAtLeast(1)
+
+    val targetWindowMinutes = when {
+        totalDurationMinutes <= 120.0 -> 60.0
+        totalDurationMinutes <= 720.0 -> 120.0
+        totalDurationMinutes <= 1440.0 -> 180.0
+        else -> 360.0
+    }
+
+    return (targetWindowMinutes / avgMinutesPerPoint)
+        .roundToInt()
+        .coerceAtLeast(10)
+        .coerceAtMost(points.size)
 }
 
 private fun millisToIsoSaoPaulo(millis: Long): String {
@@ -422,7 +493,7 @@ private fun formatPeriodPtBr(startIso: String?, stopIso: String?): String? {
     if (startIso.isNullOrBlank() || stopIso.isNullOrBlank()) return null
 
     val zone = ZoneId.of("America/Sao_Paulo")
-    val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
+    val fmt = DateTimeFormatter.ofPattern("dd/MM\nHH:mm", Locale("pt", "BR"))
 
     return try {
         val start = OffsetDateTime.parse(startIso).atZoneSameInstant(zone)
@@ -447,14 +518,12 @@ private fun formatChartTime(ts: String?): String {
     return try {
         OffsetDateTime.parse(ts)
             .atZoneSameInstant(zone)
-            .toLocalTime()
-            .format(DateTimeFormatter.ofPattern("HH:mm"))
+            .format(DateTimeFormatter.ofPattern("dd/MM\nHH:mm"))
     } catch (_: Exception) {
         try {
             Instant.parse(ts)
                 .atZone(zone)
-                .toLocalTime()
-                .format(DateTimeFormatter.ofPattern("HH:mm"))
+                .format(DateTimeFormatter.ofPattern("dd/MM\nHH:mm"))
         } catch (_: Exception) {
             ""
         }
@@ -471,6 +540,25 @@ private fun parseChartTimeToEpochMillis(ts: String?): Long? {
             Instant.parse(ts).toEpochMilli()
         } catch (_: Exception) {
             null
+        }
+    }
+}
+private fun formatChartTimeSeparated(ts: String?): String {
+    if (ts.isNullOrBlank()) return ""
+
+    val zone = ZoneId.of("America/Sao_Paulo")
+
+    return try {
+        OffsetDateTime.parse(ts)
+            .atZoneSameInstant(zone)
+            .format(DateTimeFormatter.ofPattern("dd/MM  •  HH:mm"))
+    } catch (_: Exception) {
+        try {
+            Instant.parse(ts)
+                .atZone(zone)
+                .format(DateTimeFormatter.ofPattern("dd/MM  •  HH:mm"))
+        } catch (_: Exception) {
+            ""
         }
     }
 }

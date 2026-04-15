@@ -18,6 +18,9 @@ import androidx.lifecycle.lifecycleScope
 import com.example.triade_monitoramento.data.repository.SensorRepository
 import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
 import kotlinx.coroutines.launch
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : ComponentActivity() {
 
@@ -32,6 +35,14 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = 0xFF769F86.toInt()
 
         super.onCreate(savedInstanceState)
+
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
         setContent {
             MaterialTheme {
                 Surface {
@@ -107,7 +118,7 @@ class MainActivity : ComponentActivity() {
                                         historyRange = "1h",
                                         historyEvery = "10s",
                                         pollLatestMs = 5_000L,
-                                        maxPoints = 300
+                                        maxPoints = null
                                     )
                                 }
                             }
@@ -130,8 +141,8 @@ class MainActivity : ComponentActivity() {
                                             id = sensorId,
                                             startIso = startIso,
                                             stopIso = stopIso,
-                                            every = "10s",
-                                            maxPoints = 300
+                                            every = null,
+                                            maxPoints = null
                                         )
                                     }
                                 },
@@ -144,7 +155,7 @@ class MainActivity : ComponentActivity() {
                                             historyRange = "1h",
                                             historyEvery = "10s",
                                             pollLatestMs = 5_000L,
-                                            maxPoints = 300
+                                            maxPoints = null
                                         )
                                     }
                                 }
@@ -152,7 +163,9 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Tela.CADASTRO_SENSOR -> {
-                            CadastroSensorScreen()
+                            CadastroSensorScreen(
+                                onBack = { telaAtual = Tela.TEMPERATURE }
+                            )
                         }
                     }
                 }
