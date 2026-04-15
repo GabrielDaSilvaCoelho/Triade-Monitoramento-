@@ -7,20 +7,21 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.collectAsState
-import androidx.lifecycle.lifecycleScope
-import com.example.triade_monitoramento.data.repository.SensorRepository
-import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
-import kotlinx.coroutines.launch
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.triade_monitoramento.data.repository.SensorRepository
+import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
+
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -28,7 +29,9 @@ class MainActivity : ComponentActivity() {
         LOGIN,
         CADASTRO,
         TEMPERATURE,
-        CADASTRO_SENSOR
+        CADASTRO_SENSOR,
+        SENSORES,
+        CONFIG_SENSOR
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,29 +53,27 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(Tela.LOGIN)
                     }
 
-                    var usuarioLogadoId by rememberSaveable {
-                        mutableStateOf("")
-                    }
-
                     var sensoresDaConta by remember {
                         mutableStateOf<List<UserSensor>>(emptyList())
                     }
 
                     var sensorSelecionado by remember {
-                        mutableStateOf<UserSensor?>(sensoresDaConta.firstOrNull())
+                        mutableStateOf<UserSensor?>(null)
+                    }
+
+                    var sensorSelecionadoConfig by remember {
+                        mutableStateOf<SensorListItemUi?>(null)
                     }
 
                     when (telaAtual) {
-
                         Tela.LOGIN -> {
                             LoginScreen(
                                 onLogado = { usuario ->
-
                                     lifecycleScope.launch {
-
                                         Session.userId = usuario.id
 
-                                        val repository = SensorRepository(SupabaseClientProvider.client)
+                                        val repository =
+                                            SensorRepository(SupabaseClientProvider.client)
 
                                         val sensores = repository.buscarSensoresDoUsuario()
 
@@ -84,8 +85,7 @@ class MainActivity : ComponentActivity() {
 
                                         telaAtual = Tela.TEMPERATURE
                                     }
-                                }
-                                ,
+                                },
                                 onIrParaCadastro = {
                                     telaAtual = Tela.CADASTRO
                                 }
@@ -107,7 +107,14 @@ class MainActivity : ComponentActivity() {
                             val repo = TemperatureRepository(NetworkModule.temperatureApi)
                             val factory = TemperatureVmFactory(repo)
                             val vm: TemperatureViewModel = viewModel(factory = factory)
-                            val state = vm.state.collectAsState().value
+                            val state by vm.state.collectAsState()
+
+                            LaunchedEffect(sensoresDaConta, sensorSelecionado) {
+                                vm.setSensores(
+                                    sensores = sensoresDaConta,
+                                    sensorSelecionado = sensorSelecionado
+                                )
+                            }
 
                             LaunchedEffect(sensorSelecionado?.sensorId) {
                                 val sensorId = sensorSelecionado?.sensorId.orEmpty()
@@ -129,20 +136,19 @@ class MainActivity : ComponentActivity() {
                                 availableSensors = sensoresDaConta,
                                 onSelectSensor = { sensor ->
                                     sensorSelecionado = sensor
+                                    vm.selecionarSensor(sensor)
                                 },
                                 onGoToSensorRegister = {
                                     telaAtual = Tela.CADASTRO_SENSOR
                                 },
-                                onApplyPeriod = { startIso, stopIso ->
+                                onApplyPeriod = { start, stop ->
                                     val sensorId = sensorSelecionado?.sensorId.orEmpty()
 
                                     if (sensorId.isNotBlank()) {
                                         vm.loadHistoryByPeriod(
                                             id = sensorId,
-                                            startIso = startIso,
-                                            stopIso = stopIso,
-                                            every = null,
-                                            maxPoints = null
+                                            startIso = start,
+                                            stopIso = stop
                                         )
                                     }
                                 },
@@ -158,13 +164,97 @@ class MainActivity : ComponentActivity() {
                                             maxPoints = null
                                         )
                                     }
+                                },
+                                onGoToPerfil = {
+                                    // futura tela perfil
+                                },
+                                onGoToSensores = {
+                                    telaAtual = Tela.SENSORES
+                                },
+                                onSair = {
+                                    Session.userId = null
+                                    sensoresDaConta = emptyList()
+                                    sensorSelecionado = null
+                                    sensorSelecionadoConfig = null
+                                    vm.stopStreaming()
+                                    telaAtual = Tela.LOGIN
                                 }
                             )
                         }
 
+                        Tela.SENSORES -> {
+                            val listaSensoresUi = sensoresDaConta.map { sensor ->
+                                SensorListItemUi(
+                                    sensorId = sensor.sensorId,
+                                    nome = sensor.sensorId,
+                                    temperaturaAtual = null,
+                                    umidadeAtual = null,
+                                    tempLimitMax = null,
+                                    tempLimitMin = null
+                                )
+                            }
+
+                            SensoresScreen(
+                                sensores = listaSensoresUi,
+                                onBack = {
+                                    telaAtual = Tela.TEMPERATURE
+                                },
+                                onAbrirConfiguracao = { sensor ->
+                                    sensorSelecionadoConfig = sensor
+                                    telaAtual = Tela.CONFIG_SENSOR
+                                }
+                            )
+                        }
+
+                        Tela.CONFIG_SENSOR -> {
+                            val sensor = sensorSelecionadoConfig
+
+                            if (sensor != null) {
+                                SensorConfigScreen(
+                                    sensorId = sensor.sensorId,
+                                    nomeInicial = sensor.nome,
+                                    tempMaxInicial = sensor.tempLimitMax,
+                                    tempMinInicial = sensor.tempLimitMin,
+                                    onBack = {
+                                        telaAtual = Tela.SENSORES
+                                    },
+                                    onSensorExcluido = {
+                                        lifecycleScope.launch {
+                                            val repository =
+                                                SensorRepository(SupabaseClientProvider.client)
+
+                                            val sensores =
+                                                repository.buscarSensoresDoUsuario()
+
+                                            sensoresDaConta = sensores
+                                            sensorSelecionado = sensores.firstOrNull()
+                                            sensorSelecionadoConfig = null
+
+                                            telaAtual = Tela.SENSORES
+                                        }
+                                    }
+                                )
+                            } else {
+                                telaAtual = Tela.SENSORES
+                            }
+                        }
+
                         Tela.CADASTRO_SENSOR -> {
                             CadastroSensorScreen(
-                                onBack = { telaAtual = Tela.TEMPERATURE }
+                                onBack = {
+                                    lifecycleScope.launch {
+                                        val repository =
+                                            SensorRepository(SupabaseClientProvider.client)
+
+                                        val sensores =
+                                            repository.buscarSensoresDoUsuario()
+
+                                        sensoresDaConta = sensores
+                                        sensorSelecionado = sensores.firstOrNull()
+
+                                        telaAtual = Tela.TEMPERATURE
+                                    }
+                                }
                             )
                         }
                     }
