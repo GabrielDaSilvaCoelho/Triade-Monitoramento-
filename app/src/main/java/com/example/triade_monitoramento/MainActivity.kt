@@ -18,12 +18,23 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.triade_monitoramento.data.model.UserSensor
+import com.example.triade_monitoramento.data.remote.NetworkModule
+import com.example.triade_monitoramento.data.remote.SupabaseClientProvider
 import com.example.triade_monitoramento.data.repository.SensorRepository
+import com.example.triade_monitoramento.data.repository.TemperatureRepository
+import com.example.triade_monitoramento.ui.cadastro.CadastroScreen
+import com.example.triade_monitoramento.ui.login.LoginScreen
 import com.example.triade_monitoramento.ui.perfil.PerfilScreen
 import com.example.triade_monitoramento.ui.perfil.UsuarioPerfil
 import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
+import com.example.triade_monitoramento.ui.sensor.SensorConfigScreen
+import com.example.triade_monitoramento.ui.sensor.SensorListItemUi
+import com.example.triade_monitoramento.ui.sensor.SensoresScreen
+import com.example.triade_monitoramento.ui.temperature.TemperatureScreen
+import com.example.triade_monitoramento.ui.temperature.TemperatureViewModel
+import com.example.triade_monitoramento.ui.temperature.TemperatureVmFactory
 import kotlinx.coroutines.launch
-import android.net.Uri
 
 class MainActivity : ComponentActivity() {
 
