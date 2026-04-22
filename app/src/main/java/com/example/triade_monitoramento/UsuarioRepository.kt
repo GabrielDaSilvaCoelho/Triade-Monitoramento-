@@ -31,7 +31,6 @@ class UsuarioRepository {
         return result
     }
 
-
     suspend fun login(email: String, senha: String): UsuarioRow? {
         val result = client.postgrest.rpc(
             function = "login_usuario",
@@ -41,5 +40,20 @@ class UsuarioRepository {
             )
         )
         return result.decodeList<UsuarioRow>().firstOrNull()
+    }
+
+    suspend fun buscarUsuarioLogado(): UsuarioRow? {
+        val userId = Session.userId ?: return null
+
+        val result = client
+            .from("usuario")
+            .select {
+                filter {
+                    eq("id", userId)
+                }
+            }
+            .decodeList<UsuarioRow>()
+
+        return result.firstOrNull()
     }
 }

@@ -19,9 +19,11 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.triade_monitoramento.data.repository.SensorRepository
+import com.example.triade_monitoramento.ui.perfil.PerfilScreen
+import com.example.triade_monitoramento.ui.perfil.UsuarioPerfil
 import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
-
 import kotlinx.coroutines.launch
+import android.net.Uri
 
 class MainActivity : ComponentActivity() {
 
@@ -31,7 +33,8 @@ class MainActivity : ComponentActivity() {
         TEMPERATURE,
         CADASTRO_SENSOR,
         SENSORES,
-        CONFIG_SENSOR
+        CONFIG_SENSOR,
+        PERFIL
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,12 +68,26 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<SensorListItemUi?>(null)
                     }
 
+                    var usuarioLogado by remember {
+                        mutableStateOf<UsuarioPerfil?>(null)
+                    }
+
+                    var fotoPerfilUri by rememberSaveable {
+                        mutableStateOf<String?>(null)
+                    }
+
                     when (telaAtual) {
                         Tela.LOGIN -> {
                             LoginScreen(
                                 onLogado = { usuario ->
                                     lifecycleScope.launch {
                                         Session.userId = usuario.id
+
+                                        usuarioLogado = UsuarioPerfil(
+                                            nome = usuario.nome ?: "Sem nome",
+                                            email = usuario.email ?: "Sem email",
+                                            telefone = usuario.telefone ?: "Não informado"
+                                        )
 
                                         val repository =
                                             SensorRepository(SupabaseClientProvider.client)
@@ -166,18 +183,32 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onGoToPerfil = {
-                                    // futura tela perfil
+                                    telaAtual = Tela.PERFIL
                                 },
                                 onGoToSensores = {
                                     telaAtual = Tela.SENSORES
                                 },
                                 onSair = {
                                     Session.userId = null
+                                    usuarioLogado = null
                                     sensoresDaConta = emptyList()
                                     sensorSelecionado = null
                                     sensorSelecionadoConfig = null
                                     vm.stopStreaming()
                                     telaAtual = Tela.LOGIN
+                                }
+                            )
+                        }
+
+                        Tela.PERFIL -> {
+                            PerfilScreen(
+                                usuario = usuarioLogado ?: UsuarioPerfil(
+                                    nome = "Usuário",
+                                    email = "email@exemplo.com",
+                                    telefone = "Não informado"
+                                ),
+                                onVoltar = {
+                                    telaAtual = Tela.TEMPERATURE
                                 }
                             )
                         }
@@ -256,10 +287,6 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
-                        }
-
-                        Tela.CADASTRO_SENSOR -> {
-                            CadastroSensorScreen()
                         }
                     }
                 }
