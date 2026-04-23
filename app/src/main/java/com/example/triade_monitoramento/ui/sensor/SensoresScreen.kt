@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.triade_monitoramento.ui.navigation.ScreenContainer
+import com.example.triade_monitoramento.data.api.TemperatureApi
 
 private val TriadeGreen = Color(0xFF769F86)
 private val TriadeBorder = Color(0xFF8AA796)

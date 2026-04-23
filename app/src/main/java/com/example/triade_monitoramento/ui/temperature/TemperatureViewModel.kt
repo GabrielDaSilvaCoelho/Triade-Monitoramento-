@@ -133,6 +133,19 @@ class TemperatureViewModel(
         }
     }
 
+    fun resetState() {
+        stopStreaming()
+        _state.value = TemperatureUiState(
+            isLoading = false,
+            latestTemp = null,
+            latestHum = null,
+            chartPoints = emptyList(),
+            error = null,
+            periodStartIso = null,
+            periodStopIso = null
+        )
+    }
+
     fun stopStreaming() {
         loopJob?.cancel()
         loopJob = null
@@ -186,14 +199,22 @@ class TemperatureViewModel(
 
     fun setSensores(
         sensores: List<UserSensor>,
-        sensorSelecionado: UserSensor? = sensores.firstOrNull()
+        sensorSelecionado: UserSensor?
     ) {
-        _state.update {
-            it.copy(
+        if (sensorSelecionado == null || sensores.isEmpty()) {
+            stopStreaming()
+            _state.value = TemperatureUiState(
                 sensores = sensores,
-                sensorSelecionado = sensorSelecionado
+                sensorSelecionado = null
             )
+            return
         }
+
+        _state.value = _state.value.copy(
+            sensores = sensores,
+            sensorSelecionado = sensorSelecionado,
+            error = null
+        )
     }
 
     fun selecionarSensor(sensor: UserSensor) {

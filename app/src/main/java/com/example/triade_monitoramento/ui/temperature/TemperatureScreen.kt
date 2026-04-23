@@ -1,29 +1,73 @@
 package com.example.triade_monitoramento.ui.temperature
 
+import android.view.MotionEvent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import com.example.triade_monitoramento.data.api.TemperatureApi
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.triade_monitoramento.R
-import com.example.triade_monitoramento.ui.temperature.TemperatureUiState
 import com.example.triade_monitoramento.data.model.TemperaturePointDto
 import com.example.triade_monitoramento.data.model.UserSensor
+import com.example.triade_monitoramento.ui.components.ChartMarkerView
 import com.example.triade_monitoramento.ui.components.MenuLateralTriade
 import com.example.triade_monitoramento.ui.navigation.ScreenContainer
 import com.github.mikephil.charting.charts.LineChart
@@ -38,6 +82,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+
+private enum class ChartMetric {
+    TEMPERATURE,
+    HUMIDITY
+}
 
 @Composable
 fun TemperatureScreen(
@@ -54,8 +103,10 @@ fun TemperatureScreen(
     onSair: () -> Unit
 ) {
     var showFilter by remember { mutableStateOf(false) }
-    var showHumidity by remember { mutableStateOf(false) }
     var sensorMenuExpanded by remember { mutableStateOf(false) }
+    var metricMenuExpanded by remember { mutableStateOf(false) }
+    var selectedMetric by remember { mutableStateOf(ChartMetric.TEMPERATURE) }
+    var clearChartPopupSignal by remember { mutableIntStateOf(0) }
 
     if (showFilter) {
         FiltroPeriodoScreen(
@@ -71,7 +122,18 @@ fun TemperatureScreen(
         return
     }
 
-    val hasFilterApplied = state.periodStartIso != null && state.periodStopIso != null
+    val showHumidity = selectedMetric == ChartMetric.HUMIDITY
+    val accentColor = if (showHumidity) Color(0xFFC9BF5A) else Color(0xFF769F86)
+    val accentSoft = if (showHumidity) Color(0xFFFFF8E1) else Color(0xFFF3F8F5)
+    val accentBorder = if (showHumidity) Color(0xFFE0C95A) else Color(0xFFB7CEC0)
+    val accentText = if (showHumidity) Color(0xFF8A6D1F) else Color(0xFF4E6B5A)
+
+    val periodText = remember(state.periodStartIso, state.periodStopIso) {
+        formatPeriodPtBr(state.periodStartIso, state.periodStopIso)
+    }
+
+    val isFiltered = periodText != null
+    val scrollState = rememberScrollState()
 
     MenuLateralTriade(
         onCadastrarSensor = onGoToSensorRegister,
@@ -81,166 +143,253 @@ fun TemperatureScreen(
     ) { openDrawer ->
 
         ScreenContainer(background = background) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_logo),
-                    contentDescription = "Logo do app",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable { openDrawer() }
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    text = "Monitoramento",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(Modifier.padding(16.dp)) {
-
-                    SensorSelector(
-                        currentSensor = currentSensor,
-                        availableSensors = availableSensors,
-                        expanded = sensorMenuExpanded,
-                        onExpandedChange = { sensorMenuExpanded = it },
-                        onSelectSensor = {
-                            sensorMenuExpanded = false
-                            onSelectSensor(it)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            clearChartPopupSignal++
                         }
+                    }
+                    .padding(bottom = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            clearChartPopupSignal++
+                            openDrawer()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Menu,
+                            contentDescription = "Abrir menu"
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_logo),
+                        contentDescription = "Logo do app",
+                        modifier = Modifier.size(36.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val temp = state.latestTemp
-                    val hum = state.latestHum
-
-                    val tempColor = when {
-                        temp == null -> Color.Gray
-                        temp > 29.15 -> Color.Red
-                        else -> Color(0xFF2E7D32)
-                    }
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     Text(
-                        text = buildAnnotatedString {
-                            append("Atual: ")
-
-                            if (temp != null) {
-                                withStyle(style = SpanStyle(color = tempColor)) {
-                                    append("%.2f °C".format(temp))
-                                }
-                            } else {
-                                append("-- °C")
-                            }
-
-                            append(" | ")
-
-                            if (hum != null) {
-                                withStyle(style = SpanStyle(color = Color(0xFFC9BF5A))) {
-                                    append("%.1f %%".format(hum))
-                                }
-                            } else {
-                                append("-- %")
-                            }
-                        },
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 24.sp),
-                        modifier = Modifier.fillMaxWidth()
+                        text = "Monitoramento",
+                        style = MaterialTheme.typography.titleMedium
                     )
+                }
 
-                    Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        Text(
-                            text = if (showHumidity) {
-                                "Mostrando: Umidade (%)"
-                            } else {
-                                "Mostrando: Temperatura (°C)"
+                        SensorSelector(
+                            currentSensor = currentSensor,
+                            availableSensors = availableSensors,
+                            expanded = sensorMenuExpanded,
+                            onExpandedChange = {
+                                clearChartPopupSignal++
+                                sensorMenuExpanded = it
                             },
-                            style = MaterialTheme.typography.titleMedium
+                            onSelectSensor = {
+                                clearChartPopupSignal++
+                                sensorMenuExpanded = false
+                                onSelectSensor(it)
+                            }
                         )
 
-                        Switch(
-                            checked = showHumidity,
-                            onCheckedChange = { showHumidity = it },
-                            enabled = !state.isLoading,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFFC9BF5A),
-                                checkedTrackColor = Color(0xFFC9BF5A).copy(alpha = 0.5f),
-                                uncheckedThumbColor = Color(0xFF769F86),
-                                uncheckedTrackColor = Color(0xFF769F86).copy(alpha = 0.5f)
-                            )
-                        )
-                    }
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    Spacer(Modifier.height(10.dp))
+                        val temp = state.latestTemp
+                        val hum = state.latestHum
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (showHumidity) {
-                                    Color(0xFFC9BF5A)
-                                } else {
-                                    Color(0xFF769F86)
-                                }
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            onClick = { showFilter = true },
-                            enabled = !state.isLoading,
-                            modifier = Modifier.padding(horizontal = 1.dp)
-                        ) {
-                            Text("Filtrar período")
+                        val tempColor = when {
+                            temp == null -> Color.Gray
+                            temp > 29.15 -> Color.Red
+                            else -> Color(0xFF2E7D32)
                         }
 
-                        OutlinedButton(
-                            onClick = onBackToRealtime,
-                            shape = RoundedCornerShape(8.dp),
-                            enabled = !state.isLoading && hasFilterApplied
-                        ) {
-                            Text("Tempo real")
-                        }
-                    }
-
-
-                    val periodText = remember(state.periodStartIso, state.periodStopIso) {
-                        formatPeriodPtBr(state.periodStartIso, state.periodStopIso)
-                    }
-
-                    if (periodText != null) {
-                        Spacer(Modifier.height(8.dp))
                         Text(
-                            text = periodText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                            text = buildAnnotatedString {
+                                append("Atual: ")
 
-                    state.error?.let { erro ->
+                                if (temp != null) {
+                                    withStyle(style = SpanStyle(color = tempColor)) {
+                                        append("%.1f °C".format(temp))
+                                    }
+                                } else {
+                                    append("-- °C")
+                                }
+
+                                append(" | ")
+
+                                if (hum != null) {
+                                    withStyle(style = SpanStyle(color = Color(0xFFC9BF5A))) {
+                                        append("%d %% UR".format(hum.roundToInt()))
+                                    }
+                                } else {
+                                    append("-- %")
+                                }
+                            },
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 24.sp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
                         Spacer(Modifier.height(12.dp))
 
-                        Text(
-                            text = "Erro ao carregar os dados.\n$erro\nVerifique conexão do Sensor.",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
+                        MetricSelector(
+                            selectedMetric = selectedMetric,
+                            expanded = metricMenuExpanded,
+                            onExpandedChange = {
+                                clearChartPopupSignal++
+                                metricMenuExpanded = it
+                            },
+                            onSelectMetric = {
+                                clearChartPopupSignal++
+                                selectedMetric = it
+                                metricMenuExpanded = false
+                            }
                         )
-                    }
-                    Spacer(Modifier.height(16.dp))
 
-                    TemperatureLineChart(
-                        points = state.chartPoints,
-                        showHumidity = showHumidity
-                    )
+                        Spacer(Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = accentColor
+                                ),
+                                shape = RoundedCornerShape(14.dp),
+                                onClick = {
+                                    clearChartPopupSignal++
+                                    showFilter = true
+                                },
+                                enabled = !state.isLoading,
+                                modifier = Modifier
+                                    .weight(if (isFiltered) 1.15f else 1f)
+                                    .height(54.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.CalendarMonth,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Text(
+                                    text = "Filtrar período",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            AnimatedVisibility(
+                                visible = isFiltered,
+                                enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
+                                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        clearChartPopupSignal++
+                                        onBackToRealtime()
+                                    },
+                                    shape = RoundedCornerShape(14.dp),
+                                    enabled = !state.isLoading,
+                                    border = BorderStroke(1.dp, accentColor),
+                                    modifier = Modifier
+                                        .widthIn(min = 152.dp)
+                                        .height(54.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = null,
+                                        tint = accentColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Text(
+                                        text = "Limpar filtro",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = accentColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        if (periodText != null) {
+                            Spacer(Modifier.height(12.dp))
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = accentSoft),
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, accentBorder)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        text = "Período selecionado",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = accentText,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Text(
+                                        text = periodText.removePrefix("Período: "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        state.error?.let { erro ->
+                            Spacer(Modifier.height(12.dp))
+
+                            Text(
+                                text = "Erro ao carregar os dados.\n$erro\nVerifique conexão do Sensor.",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        TemperatureLineChart(
+                            points = state.chartPoints,
+                            showHumidity = showHumidity,
+                            clearPopupSignal = clearChartPopupSignal
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+                    }
                 }
             }
         }
@@ -283,11 +432,7 @@ private fun SensorSelector(
                 )
 
                 Icon(
-                    imageVector = if (expanded) {
-                        Icons.Filled.KeyboardArrowUp
-                    } else {
-                        Icons.Filled.KeyboardArrowDown
-                    },
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = "Abrir lista de sensores"
                 )
             }
@@ -316,14 +461,79 @@ private fun SensorSelector(
 }
 
 @Composable
+private fun MetricSelector(
+    selectedMetric: ChartMetric,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelectMetric: (ChartMetric) -> Unit
+) {
+    Column {
+        Text(
+            text = "Visualização:",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Box {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onExpandedChange(true) }
+                    .border(
+                        width = 1.dp,
+                        color = when (selectedMetric) {
+                            ChartMetric.TEMPERATURE -> Color(0xFF769F86)
+                            ChartMetric.HUMIDITY -> Color(0xFFC9BF5A)
+                        },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = when (selectedMetric) {
+                        ChartMetric.TEMPERATURE -> "Temperatura (°C)"
+                        ChartMetric.HUMIDITY -> "Umidade (%)"
+                    },
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "Abrir opções de visualização"
+                )
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { onExpandedChange(false) },
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Temperatura (°C)") },
+                    onClick = { onSelectMetric(ChartMetric.TEMPERATURE) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Umidade (%)") },
+                    onClick = { onSelectMetric(ChartMetric.HUMIDITY) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun TemperatureLineChart(
     points: List<TemperaturePointDto>,
-    showHumidity: Boolean
+    showHumidity: Boolean,
+    clearPopupSignal: Int
 ) {
     AndroidView(
         modifier = Modifier
             .fillMaxWidth()
-            .height(300.dp)
+            .height(340.dp)
             .padding(horizontal = 4.dp, vertical = 1.dp)
             .border(
                 width = 2.dp,
@@ -346,6 +556,7 @@ private fun TemperatureLineChart(
                 setDragDecelerationEnabled(true)
                 setNoDataText("Sem dados para exibir")
                 legend.isEnabled = false
+                isHighlightPerTapEnabled = true
 
                 axisRight.isEnabled = true
 
@@ -371,9 +582,11 @@ private fun TemperatureLineChart(
                 val ds = LineDataSet(emptyList(), "Temperatura (°C)").apply {
                     setDrawCircles(false)
                     setDrawValues(false)
-                    lineWidth = 2.5f
+                    lineWidth = 1.8f
                     mode = LineDataSet.Mode.LINEAR
-                    highLightColor = android.graphics.Color.GRAY
+                    color = android.graphics.Color.parseColor("#769F86")
+                    highLightColor = android.graphics.Color.RED
+                    setDrawHorizontalHighlightIndicator(false)
                 }
 
                 data = LineData(ds)
@@ -383,6 +596,26 @@ private fun TemperatureLineChart(
             val data = chart.data ?: return@AndroidView
             val ds = data.getDataSetByIndex(0) as? LineDataSet ?: return@AndroidView
 
+            val sortedPoints = points.sortedBy {
+                parseChartTimeToEpochMillis(it.ts) ?: Long.MAX_VALUE
+            }
+
+            val marker = ChartMarkerView(
+                context = chart.context,
+                layoutResource = R.layout.chart_marker_view,
+                points = sortedPoints,
+                showHumidity = showHumidity
+            )
+
+            chart.marker = marker
+
+            if (clearPopupSignal > 0) {
+                marker.isVisibleMarker = false
+                chart.highlightValues(null)
+                chart.highlightValue(null)
+                chart.invalidate()
+            }
+
             val lineColor = if (showHumidity) {
                 android.graphics.Color.parseColor("#C9BF5A")
             } else {
@@ -391,8 +624,6 @@ private fun TemperatureLineChart(
 
             ds.color = lineColor
             ds.label = if (showHumidity) "Umidade (%)" else "Temperatura (°C)"
-
-            val sortedPoints = points.sortedBy { parseChartTimeToEpochMillis(it.ts) ?: Long.MAX_VALUE }
 
             val entries = sortedPoints.mapIndexedNotNull { index, p ->
                 val y = if (showHumidity) p.umidade.toFloat() else p.temperatura.toFloat()
@@ -407,6 +638,24 @@ private fun TemperatureLineChart(
                     if (index < 0 || index >= sortedPoints.size) return ""
                     return formatChartTimeSeparated(sortedPoints[index].ts)
                 }
+            }
+
+            chart.setOnTouchListener { _, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN,
+                    MotionEvent.ACTION_UP -> {
+                        val h = chart.getHighlightByTouchPoint(event.x, event.y)
+                        if (h == null) {
+                            marker.isVisibleMarker = false
+                            chart.highlightValues(null)
+                            chart.highlightValue(null)
+                            chart.invalidate()
+                        } else {
+                            marker.isVisibleMarker = true
+                        }
+                    }
+                }
+                false
             }
 
             if (entries.isNotEmpty()) {
@@ -435,7 +684,6 @@ private fun TemperatureLineChart(
 
 private fun calculateLabelCountForFullRange(points: List<TemperaturePointDto>): Int {
     val size = points.size
-
     return when {
         size <= 20 -> 3
         size <= 60 -> 4
@@ -443,59 +691,6 @@ private fun calculateLabelCountForFullRange(points: List<TemperaturePointDto>): 
         size <= 720 -> 5
         else -> 5
     }
-}
-
-private fun formatChartTimeCompact(ts: String?, totalPoints: Int): String {
-    if (ts.isNullOrBlank()) return " "
-
-    val zone = ZoneId.of("America/Sao_Paulo")
-
-    val pattern = when {
-        totalPoints <= 120 -> "HH:mm"
-        totalPoints <= 1440 -> "HH:mm"
-        else -> "dd/MM"
-    }
-
-    return try {
-        OffsetDateTime.parse(ts)
-            .atZoneSameInstant(zone)
-            .format(DateTimeFormatter.ofPattern(pattern))
-    } catch (_: Exception) {
-        try {
-            Instant.parse(ts)
-                .atZone(zone)
-                .format(DateTimeFormatter.ofPattern(pattern))
-        } catch (_: Exception) {
-            ""
-        }
-    }
-}
-
-private fun calculateInitialVisiblePoints(points: List<TemperaturePointDto>): Int {
-    if (points.isEmpty()) return 10
-    if (points.size <= 10) return points.size.coerceAtLeast(1)
-
-    val first = parseChartTimeToEpochMillis(points.firstOrNull()?.ts)
-    val last = parseChartTimeToEpochMillis(points.lastOrNull()?.ts)
-
-    if (first == null || last == null || last <= first) {
-        return points.size.coerceAtMost(60).coerceAtLeast(10)
-    }
-
-    val totalDurationMinutes = ((last - first) / 60000.0).coerceAtLeast(1.0)
-    val avgMinutesPerPoint = totalDurationMinutes / (points.size - 1).coerceAtLeast(1)
-
-    val targetWindowMinutes = when {
-        totalDurationMinutes <= 120.0 -> 60.0
-        totalDurationMinutes <= 720.0 -> 120.0
-        totalDurationMinutes <= 1440.0 -> 180.0
-        else -> 360.0
-    }
-
-    return (targetWindowMinutes / avgMinutesPerPoint)
-        .roundToInt()
-        .coerceAtLeast(10)
-        .coerceAtMost(points.size)
 }
 
 private fun millisToIsoSaoPaulo(millis: Long): String {
@@ -508,39 +703,19 @@ private fun formatPeriodPtBr(startIso: String?, stopIso: String?): String? {
     if (startIso.isNullOrBlank() || stopIso.isNullOrBlank()) return null
 
     val zone = ZoneId.of("America/Sao_Paulo")
-    val fmt = DateTimeFormatter.ofPattern("dd/MM\nHH:mm", Locale("pt", "BR"))
+    val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm", Locale("pt", "BR"))
 
     return try {
         val start = OffsetDateTime.parse(startIso).atZoneSameInstant(zone)
         val stop = OffsetDateTime.parse(stopIso).atZoneSameInstant(zone)
-        "Período: ${start.format(fmt)} → ${stop.format(fmt)}"
+        "Período: ${start.format(fmt)} até ${stop.format(fmt)}"
     } catch (_: Exception) {
         try {
             val start = Instant.parse(startIso).atZone(zone)
             val stop = Instant.parse(stopIso).atZone(zone)
-            "Período: ${start.format(fmt)} → ${stop.format(fmt)}"
+            "Período: ${start.format(fmt)} até ${stop.format(fmt)}"
         } catch (_: Exception) {
-            "Período: $startIso → $stopIso"
-        }
-    }
-}
-
-private fun formatChartTime(ts: String?): String {
-    if (ts.isNullOrBlank()) return ""
-
-    val zone = ZoneId.of("America/Sao_Paulo")
-
-    return try {
-        OffsetDateTime.parse(ts)
-            .atZoneSameInstant(zone)
-            .format(DateTimeFormatter.ofPattern("dd/MM\nHH:mm"))
-    } catch (_: Exception) {
-        try {
-            Instant.parse(ts)
-                .atZone(zone)
-                .format(DateTimeFormatter.ofPattern("dd/MM\nHH:mm"))
-        } catch (_: Exception) {
-            ""
+            "Período: $startIso até $stopIso"
         }
     }
 }

@@ -18,6 +18,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.triade_monitoramento.data.SessionManager
 import com.example.triade_monitoramento.data.model.UserSensor
 import com.example.triade_monitoramento.data.remote.NetworkModule
 import com.example.triade_monitoramento.data.remote.SupabaseClientProvider
@@ -35,6 +36,7 @@ import com.example.triade_monitoramento.ui.temperature.TemperatureScreen
 import com.example.triade_monitoramento.ui.temperature.TemperatureViewModel
 import com.example.triade_monitoramento.ui.temperature.TemperatureVmFactory
 import kotlinx.coroutines.launch
+import com.example.triade_monitoramento.data.repository.UsuarioRepository
 
 class MainActivity : ComponentActivity() {
 
@@ -49,22 +51,30 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        window.statusBarColor = 0xFF769F86.toInt()
-
         super.onCreate(savedInstanceState)
-
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = 0xFFFFFFFF.toInt()
 
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+
+        controller.isAppearanceLightStatusBars = true
+
+        val savedUserId = SessionManager.getLoggedUserId(this)
+        if (savedUserId != null) {
+            Session.userId = savedUserId
+            Log.d("SESSION_DEBUG", "Sessão restaurada. userId=$savedUserId")
+        }
 
         setContent {
             MaterialTheme {
                 Surface {
                     var telaAtual by rememberSaveable {
-                        mutableStateOf(Tela.LOGIN)
+                        mutableStateOf(
+                            if (Session.userId != null) Tela.TEMPERATURE else Tela.LOGIN
+                        )
                     }
 
                     var sensoresDaConta by remember {
@@ -87,12 +97,38 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<String?>(null)
                     }
 
+                    LaunchedEffect(Unit) {
+                        if (Session.userId != null) {
+                            try {
+                                val sensorRepository = SensorRepository(SupabaseClientProvider.client)
+                                val usuarioRepository = UsuarioRepository()
+
+                                val sensores = sensorRepository.buscarSensoresDoUsuario()
+                                sensoresDaConta = sensores
+                                sensorSelecionado = sensores.firstOrNull()
+
+                                val usuario = usuarioRepository.buscarUsuarioLogado()
+                                if (usuario != null) {
+                                    usuarioLogado = UsuarioPerfil(
+                                        nome = usuario.nome ?: "Sem nome",
+                                        email = usuario.email ?: "Sem email",
+                                        telefone = usuario.telefone ?: "Não informado"
+                                    )
+                                }
+
+                            } catch (e: Exception) {
+                                Log.e("MAIN_DEBUG", "Erro ao restaurar sessão completa", e)
+                            }
+                        }
+                    }
+
                     when (telaAtual) {
                         Tela.LOGIN -> {
                             LoginScreen(
                                 onLogado = { usuario ->
                                     lifecycleScope.launch {
                                         Session.userId = usuario.id
+                                        SessionManager.saveLogin(this@MainActivity, usuario.id)
 
                                         usuarioLogado = UsuarioPerfil(
                                             nome = usuario.nome ?: "Sem nome",
@@ -201,10 +237,14 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onSair = {
                                     Session.userId = null
+                                    SessionManager.logout(this@MainActivity)
+
                                     usuarioLogado = null
                                     sensoresDaConta = emptyList()
                                     sensorSelecionado = null
                                     sensorSelecionadoConfig = null
+                                    fotoPerfilUri = null
+
                                     vm.stopStreaming()
                                     telaAtual = Tela.LOGIN
                                 }
@@ -228,7 +268,7 @@ class MainActivity : ComponentActivity() {
                             val listaSensoresUi = sensoresDaConta.map { sensor ->
                                 SensorListItemUi(
                                     sensorId = sensor.sensorId,
-                                    nome = sensor.sensorId,
+                                    nome = sensor.nome ?: sensor.sensorId,
                                     temperaturaAtual = null,
                                     umidadeAtual = null,
                                     tempLimitMax = null,

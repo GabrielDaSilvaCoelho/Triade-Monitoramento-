@@ -26,6 +26,7 @@ import com.example.triade_monitoramento.Session
 import com.example.triade_monitoramento.data.repository.UsuarioRepository
 import com.example.triade_monitoramento.ui.components.UsuarioRow
 import kotlinx.coroutines.launch
+import com.example.triade_monitoramento.data.SessionManager
 
 @Composable
 fun LoginScreen(
@@ -123,8 +124,8 @@ fun LoginScreen(
                         val user = repo.login(email.trim(), senha)
 
                         if (user != null) {
-
                             Session.userId = user.id
+                            SessionManager.saveLogin(context, user.id)
 
                             Log.d("SESSION_DEBUG", "Session userId: ${Session.userId}")
 
@@ -163,7 +164,7 @@ fun LoginScreen(
             modifier = Modifier.clickable {
                 val intent = Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse("https://htmlcadastro.vercel.app/")
+                    Uri.parse("https://htmlcadastroo.vercel.app/")
                 )
                 context.startActivity(intent)
             }
