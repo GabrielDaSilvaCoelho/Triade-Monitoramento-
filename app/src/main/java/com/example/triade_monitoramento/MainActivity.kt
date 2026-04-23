@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = 0xFF769F86.toInt()
 
         val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
 
         controller.isAppearanceLightStatusBars = true
