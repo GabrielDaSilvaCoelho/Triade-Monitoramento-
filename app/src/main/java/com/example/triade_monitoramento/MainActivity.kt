@@ -2,7 +2,9 @@ package com.example.triade_monitoramento
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -35,7 +37,6 @@ import com.example.triade_monitoramento.ui.temperature.TemperatureScreen
 import com.example.triade_monitoramento.ui.temperature.TemperatureViewModel
 import com.example.triade_monitoramento.ui.temperature.TemperatureVmFactory
 import kotlinx.coroutines.launch
-
 
 @OptIn(androidx.compose.material.ExperimentalMaterialApi::class)
 class MainActivity : ComponentActivity() {
@@ -81,6 +82,10 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(Tela.LOGIN)
                     }
 
+                    var ultimoCliqueVoltar by remember {
+                        mutableStateOf(0L)
+                    }
+
                     var sensoresDaConta by remember {
                         mutableStateOf<List<SensorConfigData>>(emptyList())
                     }
@@ -98,7 +103,64 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val sensoresUserSensor = sensoresDaConta.map {
-                        UserSensor(sensorId = it.sensorId)
+                        UserSensor(
+                            sensorId = it.sensorId,
+                            nome = it.nome ?: it.sensorId
+                        )
+                    }
+
+                    BackHandler {
+                        when (telaAtual) {
+                            Tela.LOGIN -> {
+                                val agora = System.currentTimeMillis()
+
+                                if (agora - ultimoCliqueVoltar < 2000) {
+                                    finish()
+                                } else {
+                                    ultimoCliqueVoltar = agora
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Pressione voltar novamente para sair",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+
+                            Tela.TEMPERATURE -> {
+                                val agora = System.currentTimeMillis()
+
+                                if (agora - ultimoCliqueVoltar < 2000) {
+                                    finish()
+                                } else {
+                                    ultimoCliqueVoltar = agora
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Pressione voltar novamente para sair",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+
+                            Tela.CADASTRO -> {
+                                telaAtual = Tela.LOGIN
+                            }
+
+                            Tela.PERFIL -> {
+                                telaAtual = Tela.TEMPERATURE
+                            }
+
+                            Tela.SENSORES -> {
+                                telaAtual = Tela.TEMPERATURE
+                            }
+
+                            Tela.CONFIG_SENSOR -> {
+                                telaAtual = Tela.SENSORES
+                            }
+
+                            Tela.CADASTRO_SENSOR -> {
+                                telaAtual = Tela.TEMPERATURE
+                            }
+                        }
                     }
 
                     LaunchedEffect(sensoresDaConta, sensorSelecionado) {
@@ -138,11 +200,16 @@ class MainActivity : ComponentActivity() {
                                         val repository =
                                             SensorRepository(SupabaseClientProvider.client)
 
-                                        val sensores = repository.buscarSensoresDoUsuario()
+                                        val sensores =
+                                            repository.buscarSensoresDoUsuario()
 
                                         sensoresDaConta = sensores
+
                                         sensorSelecionado = sensores.firstOrNull()?.let {
-                                            UserSensor(sensorId = it.sensorId)
+                                            UserSensor(
+                                                sensorId = it.sensorId,
+                                                nome = it.nome ?: it.sensorId
+                                            )
                                         }
 
                                         Log.d("DEBUG_USER", "Usuario logado ID: ${usuario.id}")
@@ -247,7 +314,8 @@ class MainActivity : ComponentActivity() {
                                 sensorRealtime.copy(
                                     nome = config?.nome ?: sensorRealtime.nome,
                                     tempLimitMax = config?.tempLimitMax,
-                                    tempLimitMin = config?.tempLimitMin
+                                    tempLimitMin = config?.tempLimitMin,
+                                    acknowledged = config?.acknowledged ?: false
                                 )
                             }
 
@@ -262,12 +330,47 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onRefresh = {
                                     lifecycleScope.launch {
-                                        val repository = SensorRepository(SupabaseClientProvider.client)
-                                        val sensores = repository.buscarSensoresDoUsuario()
+                                        val repository =
+                                            SensorRepository(SupabaseClientProvider.client)
+
+                                        val sensores =
+                                            repository.buscarSensoresDoUsuario()
+
                                         sensoresDaConta = sensores
+
                                         vm.startSensoresRealtime(
-                                            sensores = sensores.map { UserSensor(sensorId = it.sensorId) }
+                                            sensores = sensores.map {
+                                                UserSensor(
+                                                    sensorId = it.sensorId,
+                                                    nome = it.nome ?: it.sensorId
+                                                )
+                                            }
                                         )
+                                    }
+                                },
+                                onReconhecerAlerta = { sensorId ->
+                                    lifecycleScope.launch {
+                                        val repository =
+                                            SensorRepository(SupabaseClientProvider.client)
+
+                                        val sucesso =
+                                            repository.marcarAlertaComoCiente(sensorId)
+
+                                        if (sucesso) {
+                                            val sensores =
+                                                repository.buscarSensoresDoUsuario()
+
+                                            sensoresDaConta = sensores
+
+                                            vm.startSensoresRealtime(
+                                                sensores = sensores.map {
+                                                    UserSensor(
+                                                        sensorId = it.sensorId,
+                                                        nome = it.nome ?: it.sensorId
+                                                    )
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             )
@@ -283,7 +386,28 @@ class MainActivity : ComponentActivity() {
                                     tempMaxInicial = sensor.tempLimitMax,
                                     tempMinInicial = sensor.tempLimitMin,
                                     onBack = {
-                                        telaAtual = Tela.SENSORES
+                                        lifecycleScope.launch {
+                                            val repository =
+                                                SensorRepository(SupabaseClientProvider.client)
+
+                                            val sensores =
+                                                repository.buscarSensoresDoUsuario()
+
+                                            sensoresDaConta = sensores
+
+                                            vm.startSensoresRealtime(
+                                                sensores = sensores.map {
+                                                    UserSensor(
+                                                        sensorId = it.sensorId,
+                                                        nome = it.nome ?: it.sensorId
+                                                    )
+                                                }
+                                            )
+
+                                            sensorSelecionadoConfig = null
+
+                                            telaAtual = Tela.SENSORES
+                                        }
                                     },
                                     onSensorExcluido = {
                                         lifecycleScope.launch {
@@ -294,9 +418,14 @@ class MainActivity : ComponentActivity() {
                                                 repository.buscarSensoresDoUsuario()
 
                                             sensoresDaConta = sensores
+
                                             sensorSelecionado = sensores.firstOrNull()?.let {
-                                                UserSensor(sensorId = it.sensorId)
+                                                UserSensor(
+                                                    sensorId = it.sensorId,
+                                                    nome = it.nome ?: it.sensorId
+                                                )
                                             }
+
                                             sensorSelecionadoConfig = null
 
                                             telaAtual = Tela.SENSORES
@@ -319,8 +448,12 @@ class MainActivity : ComponentActivity() {
                                             repository.buscarSensoresDoUsuario()
 
                                         sensoresDaConta = sensores
+
                                         sensorSelecionado = sensores.firstOrNull()?.let {
-                                            UserSensor(sensorId = it.sensorId)
+                                            UserSensor(
+                                                sensorId = it.sensorId,
+                                                nome = it.nome ?: it.sensorId
+                                            )
                                         }
 
                                         telaAtual = Tela.TEMPERATURE

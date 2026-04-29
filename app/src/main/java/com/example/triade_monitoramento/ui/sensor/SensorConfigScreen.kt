@@ -202,11 +202,12 @@ fun SensorConfigScreen(
                                 tempLimitMin = tempMin
                             )
 
-                            mensagem = if (sucesso) {
+                            mensagem = (if (sucesso) {
                                 "Configuração salva com sucesso!"
+                                onBack()
                             } else {
                                 "Erro ao salvar configuração. Caso o problema persista, contate a equipe técnica."
-                            }
+                            }).toString()
 
                             loadingSalvar = false
                         }

@@ -12,6 +12,27 @@ class SensorRepository(
     private val supabase: SupabaseClient
 ) {
 
+    suspend fun marcarAlertaComoCiente(sensorId: String): Boolean {
+        return try {
+            supabase
+                .from("alert_rules")
+                .update(
+                    {
+                        set("acknowledged", true)
+                    }
+                ) {
+                    filter {
+                        eq("sensor_id", sensorId)
+                    }
+                }
+
+            true
+        } catch (e: Exception) {
+            Log.e("ERRO_SENSOR", "Erro ao marcar alerta como ciente", e)
+            false
+        }
+    }
+
     suspend fun cadastrarSensor(
         id: String,
         nome: String,
@@ -36,7 +57,9 @@ class SensorRepository(
                 val sensor = SensorInsert(
                     id = id,
                     nome = nome,
-                    owner_id = userId
+                    owner_id = userId,
+                    temp_min = TODO(),
+                    temp_max = TODO()
                 )
 
                 supabase
@@ -66,7 +89,8 @@ class SensorRepository(
                     temp_limit = null,
                     cooldown_sec = 0,
                     temp_limit_max = tempLimitMax,
-                    temp_limit_min = tempLimitMin
+                    temp_limit_min = tempLimitMin,
+                    acknowledged = false
                 )
 
                 supabase
@@ -80,6 +104,7 @@ class SensorRepository(
                             set("temp_limit_max", tempLimitMax)
                             set("temp_limit_min", tempLimitMin)
                             set("enabled", true)
+                            set("acknowledged", false)
                         }
                     ) {
                         filter {
@@ -115,7 +140,8 @@ class SensorRepository(
                     sensorId = sensor.id,
                     nome = sensor.nome,
                     tempLimitMax = regra?.temp_limit_max,
-                    tempLimitMin = regra?.temp_limit_min
+                    tempLimitMin = regra?.temp_limit_min,
+                    acknowledged = regra?.acknowledged ?: false
                 )
             }
         } catch (e: Exception) {
@@ -146,7 +172,8 @@ class SensorRepository(
                 sensorId = sensor.id,
                 nome = sensor.nome,
                 tempLimitMax = regra?.temp_limit_max,
-                tempLimitMin = regra?.temp_limit_min
+                tempLimitMin = regra?.temp_limit_min,
+                acknowledged = regra?.acknowledged ?: false
             )
         } catch (e: Exception) {
             Log.e("ERRO_SENSOR", "Erro ao buscar sensor por ID", e)
@@ -185,7 +212,8 @@ class SensorRepository(
                     temp_limit = null,
                     cooldown_sec = 0,
                     temp_limit_max = tempLimitMax,
-                    temp_limit_min = tempLimitMin
+                    temp_limit_min = tempLimitMin,
+                    acknowledged = false
                 )
 
                 supabase
@@ -199,6 +227,7 @@ class SensorRepository(
                             set("temp_limit_max", tempLimitMax)
                             set("temp_limit_min", tempLimitMin)
                             set("enabled", true)
+                            set("acknowledged", false)
                         }
                     ) {
                         filter {
@@ -265,7 +294,8 @@ data class SensorConfigData(
     val sensorId: String,
     val nome: String? = null,
     val tempLimitMax: Double? = null,
-    val tempLimitMin: Double? = null
+    val tempLimitMin: Double? = null,
+    val acknowledged: Boolean = false
 )
 
 @Serializable
@@ -275,7 +305,8 @@ data class AlertRuleInsert(
     val temp_limit: Double? = null,
     val cooldown_sec: Int = 0,
     val temp_limit_max: Double? = null,
-    val temp_limit_min: Double? = null
+    val temp_limit_min: Double? = null,
+    val acknowledged: Boolean = false
 )
 
 @Serializable
@@ -283,5 +314,6 @@ data class AlertRuleDTO(
     val id: Int? = null,
     val sensor_id: String,
     val temp_limit_max: Double? = null,
-    val temp_limit_min: Double? = null
+    val temp_limit_min: Double? = null,
+    val acknowledged: Boolean = false
 )

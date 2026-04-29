@@ -3,17 +3,7 @@ package com.example.triade_monitoramento.ui.sensor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -25,30 +15,14 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.triade_monitoramento.ui.navigation.ScreenContainer
-import com.example.triade_monitoramento.data.api.TemperatureApi
 
 private val TriadeGreen = Color(0xFF769F86)
 private val TriadeBorder = Color(0xFF8AA796)
@@ -63,7 +37,8 @@ data class SensorListItemUi(
     val temperaturaAtual: Double?,
     val umidadeAtual: Double?,
     val tempLimitMax: Double?,
-    val tempLimitMin: Double?
+    val tempLimitMin: Double?,
+    val acknowledged: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
@@ -72,7 +47,8 @@ fun SensoresScreen(
     sensores: List<SensorListItemUi>,
     onBack: () -> Unit,
     onAbrirConfiguracao: (SensorListItemUi) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onReconhecerAlerta: (String) -> Unit
 ) {
     var refreshing by remember { mutableStateOf(false) }
 
@@ -131,17 +107,15 @@ fun SensoresScreen(
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(20.dp),
-                                color = CardBg,
-                                tonalElevation = 0.dp,
-                                shadowElevation = 0.dp
+                                color = CardBg
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .border(
-                                            width = 1.5.dp,
-                                            color = TriadeBorder,
-                                            shape = RoundedCornerShape(20.dp)
+                                            1.5.dp,
+                                            TriadeBorder,
+                                            RoundedCornerShape(20.dp)
                                         )
                                         .padding(20.dp),
                                     contentAlignment = Alignment.Center
@@ -155,10 +129,16 @@ fun SensoresScreen(
                             }
                         }
                     } else {
-                        items(sensores, key = { it.sensorId }) { sensor ->
+                        items(
+                            items = sensores,
+                            key = { it.sensorId }
+                        ) { sensor ->
                             SensorListCard(
                                 sensor = sensor,
-                                onClick = { onAbrirConfiguracao(sensor) }
+                                onClick = { onAbrirConfiguracao(sensor) },
+                                onReconhecerAlerta = {
+                                    onReconhecerAlerta(sensor.sensorId)
+                                }
                             )
                         }
                     }
@@ -179,7 +159,8 @@ fun SensoresScreen(
 @Composable
 private fun SensorListCard(
     sensor: SensorListItemUi,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onReconhecerAlerta: () -> Unit
 ) {
     val statusColor = calcularCorStatus(
         temperatura = sensor.temperaturaAtual,
@@ -187,22 +168,31 @@ private fun SensorListCard(
         tempMax = sensor.tempLimitMax
     )
 
+    val estaForaDoLimite =
+        sensor.temperaturaAtual != null &&
+                sensor.tempLimitMin != null &&
+                sensor.tempLimitMax != null &&
+                (
+                        sensor.temperaturaAtual < sensor.tempLimitMin ||
+                                sensor.temperaturaAtual > sensor.tempLimitMax
+                        )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = CardBg
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
-        )
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.8.dp, TriadeBorder, RoundedCornerShape(20.dp))
+                .border(
+                    width = 1.8.dp,
+                    color = TriadeBorder,
+                    shape = RoundedCornerShape(20.dp)
+                )
                 .padding(16.dp)
         ) {
             Row(
@@ -238,9 +228,7 @@ private fun SensorListCard(
                 SensorInfoBloco(
                     titulo = "Status",
                     customContent = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
                                     .size(14.dp)
@@ -253,7 +241,7 @@ private fun SensorListCard(
                                 text = when {
                                     sensor.temperaturaAtual == null -> "Sem dados"
                                     sensor.tempLimitMin == null || sensor.tempLimitMax == null -> "Sem limite"
-                                    statusColor == TriadeRed -> "Fora do limite"
+                                    estaForaDoLimite -> "Fora do limite"
                                     else -> "Normal"
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
@@ -291,6 +279,35 @@ private fun SensorListCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = TextDark.copy(alpha = 0.75f)
             )
+
+            if (estaForaDoLimite) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        if (!sensor.acknowledged) {
+                            onReconhecerAlerta()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !sensor.acknowledged,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (sensor.acknowledged) Color.Gray else TriadeGreen,
+                        contentColor = Color.White,
+                        disabledContainerColor = Color.Gray,
+                        disabledContentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = if (sensor.acknowledged) {
+                            "Aguardando normalização"
+                        } else {
+                            "Reconhecer alerta"
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -301,9 +318,7 @@ private fun SensorInfoBloco(
     valor: String? = null,
     customContent: @Composable (() -> Unit)? = null
 ) {
-    Column(
-        horizontalAlignment = Alignment.Start
-    ) {
+    Column(horizontalAlignment = Alignment.Start) {
         Text(
             text = "$titulo:",
             style = MaterialTheme.typography.labelMedium,
@@ -329,13 +344,8 @@ private fun calcularCorStatus(
     tempMin: Double?,
     tempMax: Double?
 ): Color {
-    if (temperatura == null) {
-        return TriadeRed
-    }
-
-    if (tempMin == null || tempMax == null) {
-        return TriadeYellow
-    }
+    if (temperatura == null) return TriadeRed
+    if (tempMin == null || tempMax == null) return TriadeYellow
 
     return if (temperatura < tempMin || temperatura > tempMax) {
         TriadeRed
