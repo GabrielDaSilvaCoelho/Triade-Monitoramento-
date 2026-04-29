@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import com.example.triade_monitoramento.data.api.TemperatureApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -226,7 +227,7 @@ fun TemperatureScreen(
 
                                 if (temp != null) {
                                     withStyle(style = SpanStyle(color = tempColor)) {
-                                        append("%.2f °C".format(temp))
+                                        append("%.1f °C".format(temp))
                                     }
                                 } else {
                                     append("-- °C")
@@ -236,7 +237,7 @@ fun TemperatureScreen(
 
                                 if (hum != null) {
                                     withStyle(style = SpanStyle(color = Color(0xFFC9BF5A))) {
-                                        append("%.1f %%".format(hum))
+                                        append("%d %% UR".format(hum.roundToInt()))
                                     }
                                 } else {
                                     append("-- %")

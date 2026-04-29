@@ -252,7 +252,7 @@ fun CadastroSensorScreen(
                                 temperaturaMaxima = ""
                                 temperaturaMinima = ""
                             } else {
-                                mensagem = "Erro ao cadastrar sensor. Caso o problema persista, contate a equipe técnica."
+                                mensagem = "Falha ao cadastrar sensor. Veja o Logcat em SENSOR_DEBUG."
                             }
 
                             loading = false

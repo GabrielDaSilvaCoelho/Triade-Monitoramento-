@@ -59,4 +59,5 @@ class UsuarioRepository {
 
         return result.firstOrNull()
     }
+
 }
