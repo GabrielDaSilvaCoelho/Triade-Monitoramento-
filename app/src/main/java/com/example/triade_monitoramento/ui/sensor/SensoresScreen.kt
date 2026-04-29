@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,9 +18,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,6 +38,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,13 +65,25 @@ data class SensorListItemUi(
     val tempLimitMin: Double?
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun SensoresScreen(
     sensores: List<SensorListItemUi>,
     onBack: () -> Unit,
-    onAbrirConfiguracao: (SensorListItemUi) -> Unit
+    onAbrirConfiguracao: (SensorListItemUi) -> Unit,
+    onRefresh: () -> Unit
 ) {
+    var refreshing by remember { mutableStateOf(false) }
+
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            onRefresh()
+            refreshing = false
+        }
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -83,45 +104,56 @@ fun SensoresScreen(
         }
     ) { innerPadding ->
         ScreenContainer {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .pullRefresh(pullRefreshState)
             ) {
-                Text(
-                    text = "Selecione um sensor para visualizar ou editar suas configurações.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextDark
-                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)
+                ) {
+                    item {
+                        Text(
+                            text = "Selecione um sensor para visualizar ou editar suas configurações.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextDark
+                        )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (sensores.isEmpty()) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        color = CardBg,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(1.5.dp, TriadeBorder, RoundedCornerShape(20.dp))
-                                .padding(20.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Nenhum sensor cadastrado.",
-                                color = TextDark,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+
+                    if (sensores.isEmpty()) {
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                color = CardBg,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(
+                                            width = 1.5.dp,
+                                            color = TriadeBorder,
+                                            shape = RoundedCornerShape(20.dp)
+                                        )
+                                        .padding(20.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Nenhum sensor cadastrado ou carregando dados...",
+                                        color = TextDark,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                }
+                            }
+                        }
+                    } else {
                         items(sensores, key = { it.sensorId }) { sensor ->
                             SensorListCard(
                                 sensor = sensor,
@@ -130,6 +162,14 @@ fun SensoresScreen(
                         }
                     }
                 }
+
+                PullRefreshIndicator(
+                    refreshing = refreshing,
+                    state = pullRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    backgroundColor = Color.White,
+                    contentColor = TriadeGreen
+                )
             }
         }
     }
@@ -209,7 +249,12 @@ private fun SensorListCard(
                             Spacer(modifier = Modifier.size(8.dp))
 
                             Text(
-                                text = if (statusColor == TriadeRed) "Fora do limite" else "Normal",
+                                text = when {
+                                    sensor.temperaturaAtual == null -> "Sem dados"
+                                    sensor.tempLimitMin == null || sensor.tempLimitMax == null -> "Sem limite"
+                                    statusColor == TriadeRed -> "Fora do limite"
+                                    else -> "Normal"
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextDark
                             )
@@ -219,12 +264,16 @@ private fun SensorListCard(
 
                 SensorInfoBloco(
                     titulo = "Temp",
-                    valor = sensor.temperaturaAtual?.let { "%.1f °C".format(it) } ?: "-- °C"
+                    valor = sensor.temperaturaAtual?.let {
+                        "%.1f °C".format(it)
+                    } ?: "-- °C"
                 )
 
                 SensorInfoBloco(
                     titulo = "Umid",
-                    valor = sensor.umidadeAtual?.let { "%.1f %%".format(it) } ?: "-- %"
+                    valor = sensor.umidadeAtual?.let {
+                        "%.1f %%".format(it)
+                    } ?: "-- %"
                 )
             }
 
@@ -279,8 +328,12 @@ private fun calcularCorStatus(
     tempMin: Double?,
     tempMax: Double?
 ): Color {
-    if (temperatura == null || tempMin == null || tempMax == null) {
+    if (temperatura == null) {
         return TriadeRed
+    }
+
+    if (tempMin == null || tempMax == null) {
+        return TriadeYellow
     }
 
     return if (temperatura < tempMin || temperatura > tempMax) {

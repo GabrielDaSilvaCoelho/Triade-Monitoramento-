@@ -13,7 +13,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
@@ -21,6 +20,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.triade_monitoramento.data.model.UserSensor
 import com.example.triade_monitoramento.data.remote.NetworkModule
 import com.example.triade_monitoramento.data.remote.SupabaseClientProvider
+import com.example.triade_monitoramento.data.repository.SensorConfigData
 import com.example.triade_monitoramento.data.repository.SensorRepository
 import com.example.triade_monitoramento.data.repository.TemperatureRepository
 import com.example.triade_monitoramento.ui.cadastro.CadastroScreen
@@ -36,6 +36,8 @@ import com.example.triade_monitoramento.ui.temperature.TemperatureViewModel
 import com.example.triade_monitoramento.ui.temperature.TemperatureVmFactory
 import kotlinx.coroutines.launch
 
+
+@OptIn(androidx.compose.material.ExperimentalMaterialApi::class)
 class MainActivity : ComponentActivity() {
 
     private enum class Tela {
@@ -51,26 +53,36 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-
         window.statusBarColor = 0xFF769F86.toInt()
 
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.hide(WindowInsetsCompat.Type.navigationBars())
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-
-
         controller.isAppearanceLightStatusBars = true
 
         setContent {
             MaterialTheme {
                 Surface {
+                    val temperatureRepo = remember {
+                        TemperatureRepository(NetworkModule.temperatureApi)
+                    }
+
+                    val factory = remember {
+                        TemperatureVmFactory(temperatureRepo)
+                    }
+
+                    val vm: TemperatureViewModel = viewModel(factory = factory)
+
+                    val state by vm.state.collectAsState()
+                    val sensoresRealtime by vm.sensoresRealtime.collectAsState()
+
                     var telaAtual by rememberSaveable {
                         mutableStateOf(Tela.LOGIN)
                     }
 
                     var sensoresDaConta by remember {
-                        mutableStateOf<List<UserSensor>>(emptyList())
+                        mutableStateOf<List<SensorConfigData>>(emptyList())
                     }
 
                     var sensorSelecionado by remember {
@@ -85,8 +97,29 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<UsuarioPerfil?>(null)
                     }
 
-                    var fotoPerfilUri by rememberSaveable {
-                        mutableStateOf<String?>(null)
+                    val sensoresUserSensor = sensoresDaConta.map {
+                        UserSensor(sensorId = it.sensorId)
+                    }
+
+                    LaunchedEffect(sensoresDaConta, sensorSelecionado) {
+                        vm.setSensores(
+                            sensores = sensoresUserSensor,
+                            sensorSelecionado = sensorSelecionado
+                        )
+                    }
+
+                    LaunchedEffect(sensorSelecionado?.sensorId) {
+                        val sensorId = sensorSelecionado?.sensorId.orEmpty()
+
+                        if (sensorId.isNotBlank()) {
+                            vm.startStreaming(
+                                id = sensorId,
+                                historyRange = "1h",
+                                historyEvery = "10s",
+                                pollLatestMs = 5_000L,
+                                maxPoints = null
+                            )
+                        }
                     }
 
                     when (telaAtual) {
@@ -108,7 +141,9 @@ class MainActivity : ComponentActivity() {
                                         val sensores = repository.buscarSensoresDoUsuario()
 
                                         sensoresDaConta = sensores
-                                        sensorSelecionado = sensores.firstOrNull()
+                                        sensorSelecionado = sensores.firstOrNull()?.let {
+                                            UserSensor(sensorId = it.sensorId)
+                                        }
 
                                         Log.d("DEBUG_USER", "Usuario logado ID: ${usuario.id}")
                                         Log.d("DEBUG_SESSION", "Session ID: ${Session.userId}")
@@ -134,36 +169,10 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Tela.TEMPERATURE -> {
-                            val repo = TemperatureRepository(NetworkModule.temperatureApi)
-                            val factory = TemperatureVmFactory(repo)
-                            val vm: TemperatureViewModel = viewModel(factory = factory)
-                            val state by vm.state.collectAsState()
-
-                            LaunchedEffect(sensoresDaConta, sensorSelecionado) {
-                                vm.setSensores(
-                                    sensores = sensoresDaConta,
-                                    sensorSelecionado = sensorSelecionado
-                                )
-                            }
-
-                            LaunchedEffect(sensorSelecionado?.sensorId) {
-                                val sensorId = sensorSelecionado?.sensorId.orEmpty()
-
-                                if (sensorId.isNotBlank()) {
-                                    vm.startStreaming(
-                                        id = sensorId,
-                                        historyRange = "1h",
-                                        historyEvery = "10s",
-                                        pollLatestMs = 5_000L,
-                                        maxPoints = null
-                                    )
-                                }
-                            }
-
                             TemperatureScreen(
                                 state = state,
                                 currentSensor = sensorSelecionado,
-                                availableSensors = sensoresDaConta,
+                                availableSensors = sensoresUserSensor,
                                 onSelectSensor = { sensor ->
                                     sensorSelecionado = sensor
                                     vm.selecionarSensor(sensor)
@@ -207,7 +216,10 @@ class MainActivity : ComponentActivity() {
                                     sensoresDaConta = emptyList()
                                     sensorSelecionado = null
                                     sensorSelecionadoConfig = null
+
                                     vm.stopStreaming()
+                                    vm.stopSensoresRealtime()
+
                                     telaAtual = Tela.LOGIN
                                 }
                             )
@@ -227,25 +239,36 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Tela.SENSORES -> {
-                            val listaSensoresUi = sensoresDaConta.map { sensor ->
-                                SensorListItemUi(
-                                    sensorId = sensor.sensorId,
-                                    nome = sensor.sensorId,
-                                    temperaturaAtual = null,
-                                    umidadeAtual = null,
-                                    tempLimitMax = null,
-                                    tempLimitMin = null
+                            val sensoresComLimites = sensoresRealtime.map { sensorRealtime ->
+                                val config = sensoresDaConta.find {
+                                    it.sensorId == sensorRealtime.sensorId
+                                }
+
+                                sensorRealtime.copy(
+                                    nome = config?.nome ?: sensorRealtime.nome,
+                                    tempLimitMax = config?.tempLimitMax,
+                                    tempLimitMin = config?.tempLimitMin
                                 )
                             }
 
                             SensoresScreen(
-                                sensores = listaSensoresUi,
+                                sensores = sensoresComLimites,
                                 onBack = {
                                     telaAtual = Tela.TEMPERATURE
                                 },
                                 onAbrirConfiguracao = { sensor ->
                                     sensorSelecionadoConfig = sensor
                                     telaAtual = Tela.CONFIG_SENSOR
+                                },
+                                onRefresh = {
+                                    lifecycleScope.launch {
+                                        val repository = SensorRepository(SupabaseClientProvider.client)
+                                        val sensores = repository.buscarSensoresDoUsuario()
+                                        sensoresDaConta = sensores
+                                        vm.startSensoresRealtime(
+                                            sensores = sensores.map { UserSensor(sensorId = it.sensorId) }
+                                        )
+                                    }
                                 }
                             )
                         }
@@ -271,7 +294,9 @@ class MainActivity : ComponentActivity() {
                                                 repository.buscarSensoresDoUsuario()
 
                                             sensoresDaConta = sensores
-                                            sensorSelecionado = sensores.firstOrNull()
+                                            sensorSelecionado = sensores.firstOrNull()?.let {
+                                                UserSensor(sensorId = it.sensorId)
+                                            }
                                             sensorSelecionadoConfig = null
 
                                             telaAtual = Tela.SENSORES
@@ -294,7 +319,9 @@ class MainActivity : ComponentActivity() {
                                             repository.buscarSensoresDoUsuario()
 
                                         sensoresDaConta = sensores
-                                        sensorSelecionado = sensores.firstOrNull()
+                                        sensorSelecionado = sensores.firstOrNull()?.let {
+                                            UserSensor(sensorId = it.sensorId)
+                                        }
 
                                         telaAtual = Tela.TEMPERATURE
                                     }

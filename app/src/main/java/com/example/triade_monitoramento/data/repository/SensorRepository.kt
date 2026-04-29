@@ -2,7 +2,6 @@ package com.example.triade_monitoramento.data.repository
 
 import android.util.Log
 import com.example.triade_monitoramento.Session
-import com.example.triade_monitoramento.data.model.UserSensor
 import com.example.triade_monitoramento.data.model.SensorDTO
 import com.example.triade_monitoramento.data.model.SensorInsert
 import io.github.jan.supabase.SupabaseClient
@@ -10,8 +9,6 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.Serializable
 
 class SensorRepository(
-
-
     private val supabase: SupabaseClient
 ) {
 
@@ -24,19 +21,16 @@ class SensorRepository(
         return try {
             val userId = Session.userId ?: return false
 
-            val sensorExiste = try {
-                supabase
-                    .from("sensores")
-                    .select {
-                        filter {
-                            eq("id", id)
-                        }
+            val sensorExiste = supabase
+                .from("sensores")
+                .select {
+                    filter {
+                        eq("id", id)
+                        eq("owner_id", userId)
                     }
-                    .decodeList<SensorDTO>()
-                    .isNotEmpty()
-            } catch (_: Exception) {
-                false
-            }
+                }
+                .decodeList<SensorDTO>()
+                .isNotEmpty()
 
             if (!sensorExiste) {
                 val sensor = SensorInsert(
@@ -48,28 +42,29 @@ class SensorRepository(
                 supabase
                     .from("sensores")
                     .insert(sensor)
-            }
-
-            val regraExistente = try {
+            } else {
                 supabase
-                    .from("alert_rules")
-                    .select {
+                    .from("sensores")
+                    .update(
+                        {
+                            set("nome", nome)
+                        }
+                    ) {
                         filter {
-                            eq("sensor_id", id)
+                            eq("id", id)
+                            eq("owner_id", userId)
                         }
                     }
-                    .decodeList<AlertRuleDTO>()
-                    .firstOrNull()
-            } catch (_: Exception) {
-                null
             }
+
+            val regraExistente = buscarRegraAlerta(id)
 
             if (regraExistente == null) {
                 val regra = AlertRuleInsert(
                     sensor_id = id,
                     enabled = true,
-                    cooldown_sec = 0,
                     temp_limit = null,
+                    cooldown_sec = 0,
                     temp_limit_max = tempLimitMax,
                     temp_limit_min = tempLimitMin
                 )
@@ -100,11 +95,11 @@ class SensorRepository(
         }
     }
 
-    suspend fun buscarSensoresDoUsuario(): List<UserSensor> {
+    suspend fun buscarSensoresDoUsuario(): List<SensorConfigData> {
         val userId = Session.userId ?: return emptyList()
 
         return try {
-            val response = supabase
+            val sensores = supabase
                 .from("sensores")
                 .select {
                     filter {
@@ -113,14 +108,49 @@ class SensorRepository(
                 }
                 .decodeList<SensorDTO>()
 
-            response.map {
-                UserSensor(
-                    sensorId = it.id
+            sensores.map { sensor ->
+                val regra = buscarRegraAlerta(sensor.id)
+
+                SensorConfigData(
+                    sensorId = sensor.id,
+                    nome = sensor.nome,
+                    tempLimitMax = regra?.temp_limit_max,
+                    tempLimitMin = regra?.temp_limit_min
                 )
             }
         } catch (e: Exception) {
             Log.e("SENSOR_DEBUG", "Erro ao buscar sensores", e)
             emptyList()
+        }
+    }
+
+    suspend fun buscarSensorPorId(sensorId: String): SensorConfigData? {
+        return try {
+            val userId = Session.userId ?: return null
+
+            val sensor = supabase
+                .from("sensores")
+                .select {
+                    filter {
+                        eq("id", sensorId)
+                        eq("owner_id", userId)
+                    }
+                }
+                .decodeList<SensorDTO>()
+                .firstOrNull()
+                ?: return null
+
+            val regra = buscarRegraAlerta(sensorId)
+
+            SensorConfigData(
+                sensorId = sensor.id,
+                nome = sensor.nome,
+                tempLimitMax = regra?.temp_limit_max,
+                tempLimitMin = regra?.temp_limit_min
+            )
+        } catch (e: Exception) {
+            Log.e("ERRO_SENSOR", "Erro ao buscar sensor por ID", e)
+            null
         }
     }
 
@@ -146,22 +176,14 @@ class SensorRepository(
                     }
                 }
 
-            val regraExistente = supabase
-                .from("alert_rules")
-                .select {
-                    filter {
-                        eq("sensor_id", sensorId)
-                    }
-                }
-                .decodeList<AlertRuleDTO>()
-                .firstOrNull()
+            val regraExistente = buscarRegraAlerta(sensorId)
 
             if (regraExistente == null) {
                 val regra = AlertRuleInsert(
                     sensor_id = sensorId,
                     enabled = true,
-                    cooldown_sec = 0,
                     temp_limit = null,
+                    cooldown_sec = 0,
                     temp_limit_max = tempLimitMax,
                     temp_limit_min = tempLimitMin
                 )
@@ -219,7 +241,32 @@ class SensorRepository(
             false
         }
     }
+
+    private suspend fun buscarRegraAlerta(sensorId: String): AlertRuleDTO? {
+        return try {
+            supabase
+                .from("alert_rules")
+                .select {
+                    filter {
+                        eq("sensor_id", sensorId)
+                    }
+                }
+                .decodeList<AlertRuleDTO>()
+                .firstOrNull()
+        } catch (e: Exception) {
+            Log.e("ERRO_SENSOR", "Erro ao buscar regra de alerta", e)
+            null
+        }
+    }
 }
+
+@Serializable
+data class SensorConfigData(
+    val sensorId: String,
+    val nome: String? = null,
+    val tempLimitMax: Double? = null,
+    val tempLimitMin: Double? = null
+)
 
 @Serializable
 data class AlertRuleInsert(
@@ -233,7 +280,7 @@ data class AlertRuleInsert(
 
 @Serializable
 data class AlertRuleDTO(
-    val id: Int,
+    val id: Int? = null,
     val sensor_id: String,
     val temp_limit_max: Double? = null,
     val temp_limit_min: Double? = null

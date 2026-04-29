@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.triade_monitoramento.data.model.TemperaturePointDto
 import com.example.triade_monitoramento.data.model.UserSensor
 import com.example.triade_monitoramento.data.repository.TemperatureRepository
+import com.example.triade_monitoramento.ui.sensor.SensorListItemUi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +36,11 @@ class TemperatureViewModel(
     )
     val state: StateFlow<TemperatureUiState> = _state
 
+    private val _sensoresRealtime = MutableStateFlow<List<SensorListItemUi>>(emptyList())
+    val sensoresRealtime: StateFlow<List<SensorListItemUi>> = _sensoresRealtime
+
     private var loopJob: Job? = null
+    private var sensoresRealtimeJob: Job? = null
 
     fun startStreaming(
         id: String,
@@ -133,6 +138,56 @@ class TemperatureViewModel(
         }
     }
 
+    fun startSensoresRealtime(
+        sensores: List<UserSensor>,
+        pollMs: Long = 5_000L
+    ) {
+        stopSensoresRealtime()
+
+        sensoresRealtimeJob = viewModelScope.launch {
+            while (isActive) {
+                try {
+                    val listaAtualizada = sensores.map { sensor ->
+                        val latest = try {
+                            repo.latest(sensor.sensorId)
+                        } catch (_: Exception) {
+                            null
+                        }
+
+                        SensorListItemUi(
+                            sensorId = sensor.sensorId,
+                            nome = sensor.displayName(),
+                            temperaturaAtual = latest?.temperatura,
+                            umidadeAtual = latest?.umidade,
+                            tempLimitMax = null,
+                            tempLimitMin = null
+                        )
+                    }
+
+                    _sensoresRealtime.value = listaAtualizada
+                } catch (_: Exception) {
+                    _sensoresRealtime.value = sensores.map { sensor ->
+                        SensorListItemUi(
+                            sensorId = sensor.sensorId,
+                            nome = sensor.displayName(),
+                            temperaturaAtual = null,
+                            umidadeAtual = null,
+                            tempLimitMax = null,
+                            tempLimitMin = null
+                        )
+                    }
+                }
+
+                delay(pollMs)
+            }
+        }
+    }
+
+    fun stopSensoresRealtime() {
+        sensoresRealtimeJob?.cancel()
+        sensoresRealtimeJob = null
+    }
+
     fun stopStreaming() {
         loopJob?.cancel()
         loopJob = null
@@ -194,6 +249,13 @@ class TemperatureViewModel(
                 sensorSelecionado = sensorSelecionado
             )
         }
+
+        if (sensores.isNotEmpty()) {
+            startSensoresRealtime(sensores)
+        } else {
+            stopSensoresRealtime()
+            _sensoresRealtime.value = emptyList()
+        }
     }
 
     fun selecionarSensor(sensor: UserSensor) {
@@ -205,6 +267,7 @@ class TemperatureViewModel(
     override fun onCleared() {
         super.onCleared()
         stopStreaming()
+        stopSensoresRealtime()
     }
 
     private fun applyLimit(

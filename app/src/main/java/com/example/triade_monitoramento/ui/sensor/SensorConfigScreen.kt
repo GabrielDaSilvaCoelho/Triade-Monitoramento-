@@ -71,6 +71,20 @@ fun SensorConfigScreen(
 
     val scope = rememberCoroutineScope()
 
+    var loadingDados by remember { mutableStateOf(true) }
+
+    LaunchedEffect(sensorId) {
+        val sensor = repository.buscarSensorPorId(sensorId)
+
+        if (sensor != null) {
+            nomeSensor = sensor.nome ?: ""
+            temperaturaMaxima = sensor.tempLimitMax?.toString()?.replace(".", ",") ?: ""
+            temperaturaMinima = sensor.tempLimitMin?.toString()?.replace(".", ",") ?: ""
+        } else {
+            mensagem = "Sensor não encontrado."
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

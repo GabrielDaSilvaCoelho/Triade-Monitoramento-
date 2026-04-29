@@ -110,4 +110,6 @@ dependencies {
 
     implementation ("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.compose.material:material:1.6.0")
+
 }
