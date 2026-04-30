@@ -33,7 +33,8 @@ fun LoginScreen(
     background: Color = Color.White,
     repo: UsuarioRepository = remember { UsuarioRepository() },
     onLogado: (UsuarioRow) -> Unit,
-    onIrParaCadastro: () -> Unit
+    onIrParaCadastro: () -> Unit,
+    onEsqueciSenha: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
@@ -42,10 +43,6 @@ fun LoginScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val corBotao = Color(0xFF293944)
-
-
-
-
 
     Column(
         modifier = Modifier
@@ -103,6 +100,17 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 1.dp)
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        Text(
+            text = "Esqueci minha senha",
+            color = Color(0xFF769F86),
+            textDecoration = TextDecoration.Underline,
+            modifier = Modifier.clickable {
+                onEsqueciSenha()
+            }
         )
 
         Spacer(Modifier.height(24.dp))

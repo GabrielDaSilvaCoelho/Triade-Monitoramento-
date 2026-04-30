@@ -58,8 +58,8 @@ class SensorRepository(
                     id = id,
                     nome = nome,
                     owner_id = userId,
-                    temp_min = TODO(),
-                    temp_max = TODO()
+                    temp_min = tempLimitMin,
+                    temp_max = tempLimitMax
                 )
 
                 supabase

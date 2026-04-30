@@ -19,14 +19,17 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.triade_monitoramento.data.SessionManager
 import com.example.triade_monitoramento.data.model.UserSensor
 import com.example.triade_monitoramento.data.remote.NetworkModule
 import com.example.triade_monitoramento.data.remote.SupabaseClientProvider
 import com.example.triade_monitoramento.data.repository.SensorConfigData
 import com.example.triade_monitoramento.data.repository.SensorRepository
 import com.example.triade_monitoramento.data.repository.TemperatureRepository
+import com.example.triade_monitoramento.data.repository.UsuarioRepository
 import com.example.triade_monitoramento.ui.cadastro.CadastroScreen
 import com.example.triade_monitoramento.ui.login.LoginScreen
+import com.example.triade_monitoramento.ui.login.RecuperarSenhaScreen
 import com.example.triade_monitoramento.ui.perfil.PerfilScreen
 import com.example.triade_monitoramento.ui.perfil.UsuarioPerfil
 import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
@@ -48,7 +51,8 @@ class MainActivity : ComponentActivity() {
         CADASTRO_SENSOR,
         SENSORES,
         CONFIG_SENSOR,
-        PERFIL
+        PERFIL,
+        RECUPERAR_SENHA
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +81,8 @@ class MainActivity : ComponentActivity() {
 
                     val state by vm.state.collectAsState()
                     val sensoresRealtime by vm.sensoresRealtime.collectAsState()
+
+                    val usuarioRepository = remember { UsuarioRepository() }
 
                     var telaAtual by rememberSaveable {
                         mutableStateOf(Tela.LOGIN)
@@ -109,57 +115,72 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    BackHandler {
-                        when (telaAtual) {
-                            Tela.LOGIN -> {
-                                val agora = System.currentTimeMillis()
+                    LaunchedEffect(Unit) {
+                        val userIdSalvo = SessionManager.getLoggedUserId(this@MainActivity)
 
-                                if (agora - ultimoCliqueVoltar < 2000) {
-                                    finish()
-                                } else {
-                                    ultimoCliqueVoltar = agora
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "Pressione voltar novamente para sair",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                        Log.d("SESSION_DEBUG", "UserId salvo: $userIdSalvo")
+
+                        if (userIdSalvo != null) {
+                            Session.userId = userIdSalvo
+
+                            val usuario = usuarioRepository.buscarUsuarioLogado()
+
+                            if (usuario != null) {
+                                usuarioLogado = UsuarioPerfil(
+                                    nome = usuario.nome ?: "Sem nome",
+                                    email = usuario.email ?: "Sem email",
+                                    telefone = usuario.telefone ?: "Não informado"
+                                )
+
+                                val repository = SensorRepository(SupabaseClientProvider.client)
+                                val sensores = repository.buscarSensoresDoUsuario()
+
+                                sensoresDaConta = sensores
+
+                                sensorSelecionado = sensores.firstOrNull()?.let {
+                                    UserSensor(
+                                        sensorId = it.sensorId,
+                                        nome = it.nome ?: it.sensorId
+                                    )
                                 }
-                            }
 
-                            Tela.TEMPERATURE -> {
-                                val agora = System.currentTimeMillis()
-
-                                if (agora - ultimoCliqueVoltar < 2000) {
-                                    finish()
-                                } else {
-                                    ultimoCliqueVoltar = agora
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "Pressione voltar novamente para sair",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-
-                            Tela.CADASTRO -> {
+                                telaAtual = Tela.TEMPERATURE
+                            } else {
+                                SessionManager.logout(this@MainActivity)
+                                Session.userId = null
                                 telaAtual = Tela.LOGIN
                             }
+                        }
+                    }
 
-                            Tela.PERFIL -> {
-                                telaAtual = Tela.TEMPERATURE
+                    BackHandler {
+                        when (telaAtual) {
+                            Tela.LOGIN, Tela.TEMPERATURE -> {
+                                val agora = System.currentTimeMillis()
+
+                                if (agora - ultimoCliqueVoltar < 2000) {
+                                    finish()
+                                } else {
+                                    ultimoCliqueVoltar = agora
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Pressione voltar novamente para sair",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
 
-                            Tela.SENSORES -> {
-                                telaAtual = Tela.TEMPERATURE
-                            }
+                            Tela.CADASTRO -> telaAtual = Tela.LOGIN
 
-                            Tela.CONFIG_SENSOR -> {
-                                telaAtual = Tela.SENSORES
-                            }
+                            Tela.RECUPERAR_SENHA -> telaAtual = Tela.LOGIN
 
-                            Tela.CADASTRO_SENSOR -> {
-                                telaAtual = Tela.TEMPERATURE
-                            }
+                            Tela.PERFIL -> telaAtual = Tela.TEMPERATURE
+
+                            Tela.SENSORES -> telaAtual = Tela.TEMPERATURE
+
+                            Tela.CONFIG_SENSOR -> telaAtual = Tela.SENSORES
+
+                            Tela.CADASTRO_SENSOR -> telaAtual = Tela.TEMPERATURE
                         }
                     }
 
@@ -190,6 +211,7 @@ class MainActivity : ComponentActivity() {
                                 onLogado = { usuario ->
                                     lifecycleScope.launch {
                                         Session.userId = usuario.id
+                                        SessionManager.saveLogin(this@MainActivity, usuario.id)
 
                                         usuarioLogado = UsuarioPerfil(
                                             nome = usuario.nome ?: "Sem nome",
@@ -200,8 +222,7 @@ class MainActivity : ComponentActivity() {
                                         val repository =
                                             SensorRepository(SupabaseClientProvider.client)
 
-                                        val sensores =
-                                            repository.buscarSensoresDoUsuario()
+                                        val sensores = repository.buscarSensoresDoUsuario()
 
                                         sensoresDaConta = sensores
 
@@ -220,6 +241,17 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onIrParaCadastro = {
                                     telaAtual = Tela.CADASTRO
+                                },
+                                onEsqueciSenha = {
+                                    telaAtual = Tela.RECUPERAR_SENHA
+                                }
+                            )
+                        }
+
+                        Tela.RECUPERAR_SENHA -> {
+                            RecuperarSenhaScreen(
+                                onVoltarLogin = {
+                                    telaAtual = Tela.LOGIN
                                 }
                             )
                         }
@@ -278,6 +310,8 @@ class MainActivity : ComponentActivity() {
                                     telaAtual = Tela.SENSORES
                                 },
                                 onSair = {
+                                    SessionManager.logout(this@MainActivity)
+
                                     Session.userId = null
                                     usuarioLogado = null
                                     sensoresDaConta = emptyList()
@@ -301,6 +335,31 @@ class MainActivity : ComponentActivity() {
                                 ),
                                 onVoltar = {
                                     telaAtual = Tela.TEMPERATURE
+                                },
+                                onSalvarPerfil = { novoPerfil ->
+                                    lifecycleScope.launch {
+                                        val sucesso = usuarioRepository.atualizarPerfil(
+                                            nome = novoPerfil.nome,
+                                            email = novoPerfil.email,
+                                            telefone = novoPerfil.telefone
+                                        )
+
+                                        if (sucesso) {
+                                            usuarioLogado = novoPerfil
+
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Perfil atualizado com sucesso",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        } else {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Erro ao atualizar perfil",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
                                 }
                             )
                         }
@@ -333,8 +392,7 @@ class MainActivity : ComponentActivity() {
                                         val repository =
                                             SensorRepository(SupabaseClientProvider.client)
 
-                                        val sensores =
-                                            repository.buscarSensoresDoUsuario()
+                                        val sensores = repository.buscarSensoresDoUsuario()
 
                                         sensoresDaConta = sensores
 

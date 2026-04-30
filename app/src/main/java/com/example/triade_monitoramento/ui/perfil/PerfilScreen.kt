@@ -1,49 +1,21 @@
 package com.example.triade_monitoramento.ui.perfil
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
 
 private val TriadeGreen = Color(0xFF769F86)
-private val TriadeGreenLight = Color(0xFFDDE9E1)
 private val TriadeBorder = Color(0xFF8AA796)
 private val BackgroundColor = Color(0xFFF7F9F8)
 private val TextDark = Color(0xFF1F1F1F)
@@ -57,15 +29,14 @@ data class UsuarioPerfil(
 @Composable
 fun PerfilScreen(
     usuario: UsuarioPerfil,
-    onVoltar: () -> Unit = {}
+    onVoltar: () -> Unit = {},
+    onSalvarPerfil: (UsuarioPerfil) -> Unit = {}
 ) {
-    val imageUri = remember { mutableStateOf<Uri?>(null) }
+    var editando by remember { mutableStateOf(false) }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        imageUri.value = uri
-    }
+    var nome by remember { mutableStateOf(usuario.nome) }
+    var email by remember { mutableStateOf(usuario.email) }
+    var telefone by remember { mutableStateOf(usuario.telefone) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -86,46 +57,6 @@ fun PerfilScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Box(
-                modifier = Modifier
-                    .size(110.dp)
-                    .clip(CircleShape)
-                    .background(TriadeGreenLight)
-                    .border(2.dp, TriadeBorder, CircleShape)
-                    .clickable {
-                        launcher.launch("image/*")
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (imageUri.value != null) {
-                    Image(
-                        painter = rememberAsyncImagePainter(model = imageUri.value),
-                        contentDescription = "Foto de perfil",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Selecionar foto de perfil",
-                        tint = TriadeGreen,
-                        modifier = Modifier.size(52.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = "Toque na foto para escolher uma imagem",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -134,50 +65,52 @@ fun PerfilScreen(
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    ItemPerfil(
+
+                    CampoPerfilEditavel(
                         titulo = "Nome",
-                        valor = usuario.nome,
+                        valor = nome,
+                        editando = editando,
                         icone = {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Nome",
-                                tint = TriadeGreen
-                            )
-                        }
+                            Icon(Icons.Default.Person, contentDescription = null, tint = TriadeGreen)
+                        },
+                        onValorChange = { nome = it }
                     )
 
-                    ItemPerfil(
+                    CampoPerfilEditavel(
                         titulo = "Gmail",
-                        valor = usuario.email,
+                        valor = email,
+                        editando = editando,
                         icone = {
-                            Icon(
-                                imageVector = Icons.Default.Email,
-                                contentDescription = "Email",
-                                tint = TriadeGreen
-                            )
-                        }
+                            Icon(Icons.Default.Email, contentDescription = null, tint = TriadeGreen)
+                        },
+                        onValorChange = { email = it }
                     )
 
-                    ItemPerfil(
+                    CampoPerfilEditavel(
                         titulo = "Telefone",
-                        valor = usuario.telefone,
+                        valor = telefone,
+                        editando = editando,
                         icone = {
-                            Icon(
-                                imageVector = Icons.Default.Phone,
-                                contentDescription = "Telefone",
-                                tint = TriadeGreen
-                            )
-                        }
+                            Icon(Icons.Default.Phone, contentDescription = null, tint = TriadeGreen)
+                        },
+                        onValorChange = { telefone = it }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = onVoltar,
+                onClick = {
+                    if (editando) {
+                        onSalvarPerfil(
+                            UsuarioPerfil(nome, email, telefone)
+                        )
+                    }
+                    editando = !editando
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp),
@@ -188,19 +121,36 @@ fun PerfilScreen(
                 )
             ) {
                 Text(
-                    text = "Voltar",
-                    fontWeight = FontWeight.Medium
+                    text = if (editando) "Salvar alterações" else "Editar perfil"
                 )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = onVoltar,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Gray,
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Voltar")
             }
         }
     }
 }
 
 @Composable
-fun ItemPerfil(
+fun CampoPerfilEditavel(
     titulo: String,
     valor: String,
-    icone: @Composable () -> Unit
+    editando: Boolean,
+    icone: @Composable () -> Unit,
+    onValorChange: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -212,10 +162,7 @@ fun ItemPerfil(
             )
             .padding(16.dp)
     ) {
-        Box(
-            modifier = Modifier.padding(bottom = 8.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
+        Box(modifier = Modifier.padding(bottom = 8.dp)) {
             icone()
         }
 
@@ -225,13 +172,23 @@ fun ItemPerfil(
             color = Color.Gray
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        Text(
-            text = valor,
-            style = MaterialTheme.typography.bodyLarge,
-            color = TextDark,
-            fontWeight = FontWeight.SemiBold
-        )
+        if (editando) {
+            OutlinedTextField(
+                value = valor,
+                onValueChange = onValorChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp)
+            )
+        } else {
+            Text(
+                text = valor,
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextDark,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
