@@ -34,6 +34,7 @@ import com.example.triade_monitoramento.ui.perfil.PerfilScreen
 import com.example.triade_monitoramento.ui.perfil.UsuarioPerfil
 import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
 import com.example.triade_monitoramento.ui.sensor.SensorConfigScreen
+import com.example.triade_monitoramento.ui.sensor.SensorContatosScreen
 import com.example.triade_monitoramento.ui.sensor.SensorListItemUi
 import com.example.triade_monitoramento.ui.sensor.SensoresScreen
 import com.example.triade_monitoramento.ui.temperature.TemperatureScreen
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity() {
         CADASTRO_SENSOR,
         SENSORES,
         CONFIG_SENSOR,
+        CONFIG_CONTATOS_SENSOR,
         PERFIL,
         RECUPERAR_SENHA
     }
@@ -171,15 +173,11 @@ class MainActivity : ComponentActivity() {
                             }
 
                             Tela.CADASTRO -> telaAtual = Tela.LOGIN
-
                             Tela.RECUPERAR_SENHA -> telaAtual = Tela.LOGIN
-
                             Tela.PERFIL -> telaAtual = Tela.TEMPERATURE
-
                             Tela.SENSORES -> telaAtual = Tela.TEMPERATURE
-
                             Tela.CONFIG_SENSOR -> telaAtual = Tela.SENSORES
-
+                            Tela.CONFIG_CONTATOS_SENSOR -> telaAtual = Tela.CONFIG_SENSOR
                             Tela.CADASTRO_SENSOR -> telaAtual = Tela.TEMPERATURE
                         }
                     }
@@ -274,7 +272,23 @@ class MainActivity : ComponentActivity() {
                                 availableSensors = sensoresUserSensor,
                                 onSelectSensor = { sensor ->
                                     sensorSelecionado = sensor
-                                    vm.selecionarSensor(sensor)
+
+                                    val startIso = state.periodStartIso
+                                    val stopIso = state.periodStopIso
+
+                                    if (!startIso.isNullOrBlank() && !stopIso.isNullOrBlank()) {
+
+                                        vm.loadHistoryByPeriod(
+                                            id = sensor.sensorId,
+                                            startIso = startIso,
+                                            stopIso = stopIso
+                                        )
+
+                                    } else {
+
+                                        vm.selecionarSensor(sensor)
+
+                                    }
                                 },
                                 onGoToSensorRegister = {
                                     telaAtual = Tela.CADASTRO_SENSOR
@@ -467,6 +481,9 @@ class MainActivity : ComponentActivity() {
                                             telaAtual = Tela.SENSORES
                                         }
                                     },
+                                    onGerenciarContatos = {
+                                        telaAtual = Tela.CONFIG_CONTATOS_SENSOR
+                                    },
                                     onSensorExcluido = {
                                         lifecycleScope.launch {
                                             val repository =
@@ -488,6 +505,22 @@ class MainActivity : ComponentActivity() {
 
                                             telaAtual = Tela.SENSORES
                                         }
+                                    }
+                                )
+                            } else {
+                                telaAtual = Tela.SENSORES
+                            }
+                        }
+
+                        Tela.CONFIG_CONTATOS_SENSOR -> {
+                            val sensor = sensorSelecionadoConfig
+
+                            if (sensor != null) {
+                                SensorContatosScreen(
+                                    sensorId = sensor.sensorId,
+                                    sensorNome = sensor.nome,
+                                    onBack = {
+                                        telaAtual = Tela.CONFIG_SENSOR
                                     }
                                 )
                             } else {
