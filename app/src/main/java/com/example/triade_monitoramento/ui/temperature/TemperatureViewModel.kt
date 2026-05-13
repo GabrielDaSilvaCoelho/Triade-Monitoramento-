@@ -206,7 +206,9 @@ class TemperatureViewModel(
             _state.update {
                 it.copy(
                     isLoading = true,
-                    error = null
+                    error = null,
+                    periodStartIso = startIso,
+                    periodStopIso = stopIso
                 )
             }
 
@@ -232,7 +234,9 @@ class TemperatureViewModel(
                 _state.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Erro desconhecido"
+                        error = e.message ?: "Erro desconhecido",
+                        periodStartIso = startIso,
+                        periodStopIso = stopIso
                     )
                 }
             }

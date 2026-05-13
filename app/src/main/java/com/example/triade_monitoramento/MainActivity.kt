@@ -110,6 +110,14 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<UsuarioPerfil?>(null)
                     }
 
+                    var filtroStartIso by rememberSaveable {
+                        mutableStateOf<String?>(null)
+                    }
+
+                    var filtroStopIso by rememberSaveable {
+                        mutableStateOf<String?>(null)
+                    }
+
                     val sensoresUserSensor = sensoresDaConta.map {
                         UserSensor(
                             sensorId = it.sensorId,
@@ -189,10 +197,25 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    LaunchedEffect(sensorSelecionado?.sensorId) {
+                    LaunchedEffect(
+                        sensorSelecionado?.sensorId,
+                        filtroStartIso,
+                        filtroStopIso
+                    ) {
                         val sensorId = sensorSelecionado?.sensorId.orEmpty()
 
-                        if (sensorId.isNotBlank()) {
+                        if (sensorId.isBlank()) return@LaunchedEffect
+
+                        val start = filtroStartIso
+                        val stop = filtroStopIso
+
+                        if (!start.isNullOrBlank() && !stop.isNullOrBlank()) {
+                            vm.loadHistoryByPeriod(
+                                id = sensorId,
+                                startIso = start,
+                                stopIso = stop
+                            )
+                        } else {
                             vm.startStreaming(
                                 id = sensorId,
                                 historyRange = "1h",
@@ -272,50 +295,18 @@ class MainActivity : ComponentActivity() {
                                 availableSensors = sensoresUserSensor,
                                 onSelectSensor = { sensor ->
                                     sensorSelecionado = sensor
-
-                                    val startIso = state.periodStartIso
-                                    val stopIso = state.periodStopIso
-
-                                    if (!startIso.isNullOrBlank() && !stopIso.isNullOrBlank()) {
-
-                                        vm.loadHistoryByPeriod(
-                                            id = sensor.sensorId,
-                                            startIso = startIso,
-                                            stopIso = stopIso
-                                        )
-
-                                    } else {
-
-                                        vm.selecionarSensor(sensor)
-
-                                    }
+                                    vm.selecionarSensor(sensor)
                                 },
                                 onGoToSensorRegister = {
                                     telaAtual = Tela.CADASTRO_SENSOR
                                 },
                                 onApplyPeriod = { start, stop ->
-                                    val sensorId = sensorSelecionado?.sensorId.orEmpty()
-
-                                    if (sensorId.isNotBlank()) {
-                                        vm.loadHistoryByPeriod(
-                                            id = sensorId,
-                                            startIso = start,
-                                            stopIso = stop
-                                        )
-                                    }
+                                    filtroStartIso = start
+                                    filtroStopIso = stop
                                 },
                                 onBackToRealtime = {
-                                    val sensorId = sensorSelecionado?.sensorId.orEmpty()
-
-                                    if (sensorId.isNotBlank()) {
-                                        vm.startStreaming(
-                                            id = sensorId,
-                                            historyRange = "1h",
-                                            historyEvery = "10s",
-                                            pollLatestMs = 5_000L,
-                                            maxPoints = null
-                                        )
-                                    }
+                                    filtroStartIso = null
+                                    filtroStopIso = null
                                 },
                                 onGoToPerfil = {
                                     telaAtual = Tela.PERFIL
@@ -331,6 +322,8 @@ class MainActivity : ComponentActivity() {
                                     sensoresDaConta = emptyList()
                                     sensorSelecionado = null
                                     sensorSelecionadoConfig = null
+                                    filtroStartIso = null
+                                    filtroStopIso = null
 
                                     vm.stopStreaming()
                                     vm.stopSensoresRealtime()

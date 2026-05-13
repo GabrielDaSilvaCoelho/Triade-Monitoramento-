@@ -1,5 +1,6 @@
 package com.example.triade_monitoramento.ui.temperature
 
+import android.annotation.SuppressLint
 import android.view.MotionEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
@@ -10,7 +11,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,7 +58,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -71,7 +70,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.triade_monitoramento.R
 import com.example.triade_monitoramento.data.model.TemperaturePointDto
 import com.example.triade_monitoramento.data.model.UserSensor
-import com.example.triade_monitoramento.ui.components.ChartMarkerView
 import com.example.triade_monitoramento.ui.components.MenuLateralTriade
 import com.example.triade_monitoramento.ui.navigation.ScreenContainer
 import com.github.mikephil.charting.charts.LineChart
@@ -113,7 +111,10 @@ fun TemperatureScreen(
     var sensorMenuExpanded by remember { mutableStateOf(false) }
     var metricMenuExpanded by remember { mutableStateOf(false) }
     var selectedMetric by remember { mutableStateOf(ChartMetric.TEMPERATURE) }
-    var clearChartPopupSignal by remember { mutableIntStateOf(0) }
+    var clearChartSelectionSignal by remember { mutableIntStateOf(0) }
+    var selectedChartPointTs by remember {
+        mutableStateOf<String?>(null)
+    }
     var refreshing by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
@@ -123,7 +124,8 @@ fun TemperatureScreen(
         onRefresh = {
             scope.launch {
                 refreshing = true
-                clearChartPopupSignal++
+                selectedChartPointTs = null
+                clearChartSelectionSignal++
 
                 if (currentSensor?.sensorId?.isNotBlank() == true) {
                     onBackToRealtime()
@@ -142,6 +144,9 @@ fun TemperatureScreen(
             onApply = { startMillis, endMillis ->
                 val startIso = millisToIsoSaoPaulo(startMillis)
                 val stopIso = millisToIsoSaoPaulo(endMillis)
+
+                selectedChartPointTs = null
+                clearChartSelectionSignal++
                 showFilter = false
                 onApplyPeriod(startIso, stopIso)
             }
@@ -157,6 +162,23 @@ fun TemperatureScreen(
 
     val periodText = remember(state.periodStartIso, state.periodStopIso) {
         formatPeriodPtBr(state.periodStartIso, state.periodStopIso)
+    }
+    val selectedPointForCurrentSensor = remember(
+        selectedChartPointTs,
+        state.chartPoints
+    ) {
+        val tsSelecionado = selectedChartPointTs
+
+        if (tsSelecionado.isNullOrBlank()) {
+            null
+        } else {
+            state.chartPoints.minByOrNull { point ->
+                val pointMillis = parseChartTimeToEpochMillis(point.ts) ?: Long.MAX_VALUE
+                val selectedMillis = parseChartTimeToEpochMillis(tsSelecionado) ?: Long.MAX_VALUE
+
+                kotlin.math.abs(pointMillis - selectedMillis)
+            }
+        }
     }
 
     val isFiltered = periodText != null
@@ -179,11 +201,6 @@ fun TemperatureScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .pointerInput(Unit) {
-                            detectTapGestures {
-                                clearChartPopupSignal++
-                            }
-                        }
                         .padding(bottom = 24.dp)
                 ) {
                     Row(
@@ -192,7 +209,6 @@ fun TemperatureScreen(
                     ) {
                         IconButton(
                             onClick = {
-                                clearChartPopupSignal++
                                 openDrawer()
                             }
                         ) {
@@ -232,11 +248,9 @@ fun TemperatureScreen(
                                 availableSensors = availableSensors,
                                 expanded = sensorMenuExpanded,
                                 onExpandedChange = {
-                                    clearChartPopupSignal++
                                     sensorMenuExpanded = it
                                 },
                                 onSelectSensor = {
-                                    clearChartPopupSignal++
                                     sensorMenuExpanded = false
                                     onSelectSensor(it)
                                 }
@@ -285,11 +299,9 @@ fun TemperatureScreen(
                                 selectedMetric = selectedMetric,
                                 expanded = metricMenuExpanded,
                                 onExpandedChange = {
-                                    clearChartPopupSignal++
                                     metricMenuExpanded = it
                                 },
                                 onSelectMetric = {
-                                    clearChartPopupSignal++
                                     selectedMetric = it
                                     metricMenuExpanded = false
                                 }
@@ -308,7 +320,8 @@ fun TemperatureScreen(
                                     ),
                                     shape = RoundedCornerShape(14.dp),
                                     onClick = {
-                                        clearChartPopupSignal++
+                                        selectedChartPointTs = null
+                                        clearChartSelectionSignal++
                                         showFilter = true
                                     },
                                     enabled = !state.isLoading,
@@ -340,7 +353,8 @@ fun TemperatureScreen(
                                 ) {
                                     OutlinedButton(
                                         onClick = {
-                                            clearChartPopupSignal++
+                                            selectedChartPointTs = null
+                                            clearChartSelectionSignal++
                                             onBackToRealtime()
                                         },
                                         shape = RoundedCornerShape(14.dp),
@@ -402,6 +416,48 @@ fun TemperatureScreen(
                                 }
                             }
 
+                            selectedPointForCurrentSensor?.let { point ->
+                                Spacer(Modifier.height(8.dp))
+
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = accentSoft),
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = BorderStroke(1.dp, accentBorder)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                    ) {
+                                        Text(
+                                            text = "Ponto selecionado",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = accentText,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        Text(
+                                            text = "Data/hora: ${formatSelectedPointDateTime(point.ts)}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            lineHeight = 16.sp
+                                        )
+
+                                        Text(
+                                            text = if (showHumidity) {
+                                                "Umidade: %.1f %%".format(point.umidade)
+                                            } else {
+                                                "Temperatura: %.2f °C".format(point.temperatura)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            lineHeight = 16.sp
+                                        )
+                                    }
+                                }
+                            }
+
                             state.error?.let {
                                 Spacer(Modifier.height(12.dp))
 
@@ -417,7 +473,10 @@ fun TemperatureScreen(
                             TemperatureLineChart(
                                 points = state.chartPoints,
                                 showHumidity = showHumidity,
-                                clearPopupSignal = clearChartPopupSignal
+                                clearSelectionSignal = clearChartSelectionSignal,
+                                onPointSelected = { point ->
+                                    selectedChartPointTs = point?.ts
+                                }
                             )
 
                             Spacer(Modifier.height(12.dp))
@@ -573,11 +632,13 @@ private fun MetricSelector(
     }
 }
 
+@SuppressLint("ClickableViewAccessibility")
 @Composable
 private fun TemperatureLineChart(
     points: List<TemperaturePointDto>,
     showHumidity: Boolean,
-    clearPopupSignal: Int
+    clearSelectionSignal: Int,
+    onPointSelected: (TemperaturePointDto?) -> Unit
 ) {
     AndroidView(
         modifier = Modifier
@@ -606,6 +667,7 @@ private fun TemperatureLineChart(
                 setNoDataText("Sem dados para exibir")
                 legend.isEnabled = false
                 isHighlightPerTapEnabled = true
+                marker = null
 
                 axisRight.isEnabled = true
 
@@ -649,20 +711,11 @@ private fun TemperatureLineChart(
                 parseChartTimeToEpochMillis(it.ts) ?: Long.MAX_VALUE
             }
 
-            val marker = ChartMarkerView(
-                context = chart.context,
-                layoutResource = R.layout.chart_marker_view,
-                points = sortedPoints,
-                showHumidity = showHumidity
-            )
+            chart.marker = null
 
-            chart.marker = marker
-
-            if (clearPopupSignal > 0) {
-                marker.isVisibleMarker = false
+            if (clearSelectionSignal > 0) {
                 chart.highlightValues(null)
                 chart.highlightValue(null)
-                chart.invalidate()
             }
 
             val lineColor = if (showHumidity) {
@@ -674,11 +727,11 @@ private fun TemperatureLineChart(
             ds.color = lineColor
             ds.label = if (showHumidity) "Umidade (%)" else "Temperatura (°C)"
 
-            val entries = sortedPoints.mapIndexedNotNull { index, p ->
+            val entries = sortedPoints.mapIndexed { index, point ->
                 val y = if (showHumidity) {
-                    p.umidade.toFloat()
+                    point.umidade.toFloat()
                 } else {
-                    p.temperatura.toFloat()
+                    point.temperatura.toFloat()
                 }
 
                 Entry(index.toFloat(), y)
@@ -700,15 +753,20 @@ private fun TemperatureLineChart(
                 when (event.action) {
                     MotionEvent.ACTION_DOWN,
                     MotionEvent.ACTION_UP -> {
-                        val h = chart.getHighlightByTouchPoint(event.x, event.y)
+                        val highlight = chart.getHighlightByTouchPoint(event.x, event.y)
 
-                        if (h == null) {
-                            marker.isVisibleMarker = false
+                        if (highlight == null) {
                             chart.highlightValues(null)
                             chart.highlightValue(null)
+                            onPointSelected(null)
                             chart.invalidate()
                         } else {
-                            marker.isVisibleMarker = true
+                            val index = highlight.x.roundToInt()
+                            val point = sortedPoints.getOrNull(index)
+
+                            onPointSelected(point)
+                            chart.highlightValue(highlight)
+                            chart.invalidate()
                         }
                     }
                 }
@@ -812,6 +870,27 @@ private fun formatChartTimeSeparated(ts: String?): String {
                 .format(DateTimeFormatter.ofPattern("dd/MM  •  HH:mm"))
         } catch (_: Exception) {
             ""
+        }
+    }
+}
+
+private fun formatSelectedPointDateTime(ts: String?): String {
+    if (ts.isNullOrBlank()) return "--"
+
+    val zone = ZoneId.of("America/Sao_Paulo")
+    val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm", Locale("pt", "BR"))
+
+    return try {
+        OffsetDateTime.parse(ts)
+            .atZoneSameInstant(zone)
+            .format(fmt)
+    } catch (_: Exception) {
+        try {
+            Instant.parse(ts)
+                .atZone(zone)
+                .format(fmt)
+        } catch (_: Exception) {
+            ts
         }
     }
 }
