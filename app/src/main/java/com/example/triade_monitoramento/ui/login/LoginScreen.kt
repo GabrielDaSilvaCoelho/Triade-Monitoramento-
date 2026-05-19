@@ -104,17 +104,6 @@ fun LoginScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        Text(
-            text = "Esqueci minha senha",
-            color = Color(0xFF769F86),
-            textDecoration = TextDecoration.Underline,
-            modifier = Modifier.clickable {
-                onEsqueciSenha()
-            }
-        )
-
-        Spacer(Modifier.height(24.dp))
-
         Button(
             shape = RoundedCornerShape(8.dp),
             onClick = {

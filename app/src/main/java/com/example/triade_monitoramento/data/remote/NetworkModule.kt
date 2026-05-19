@@ -4,8 +4,13 @@ import com.example.triade_monitoramento.BuildConfig
 import com.example.triade_monitoramento.data.api.TemperatureApi
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
@@ -16,9 +21,11 @@ object NetworkModule {
     private val apiKeyInterceptor = Interceptor { chain ->
         val requestBuilder = chain.request().newBuilder()
         val apiKey = BuildConfig.API_KEY.trim()
+
         if (apiKey.isNotEmpty()) {
             requestBuilder.addHeader("X-API-Key", apiKey)
         }
+
         chain.proceed(requestBuilder.build())
     }
 
@@ -56,5 +63,27 @@ object NetworkModule {
 
     val temperatureApi: TemperatureApi by lazy {
         retrofit.create(TemperatureApi::class.java)
+    }
+
+    suspend fun simplePost(url: String, body: Map<String, Any>) {
+        withContext(Dispatchers.IO) {
+            val jsonAdapter = moshi.adapter(Map::class.java)
+            val json = jsonAdapter.toJson(body)
+
+            val requestBody = json.toRequestBody(
+                "application/json".toMediaType()
+            )
+
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+
+            okHttp.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw Exception("Erro HTTP: ${response.code}")
+                }
+            }
+        }
     }
 }

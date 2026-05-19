@@ -2,6 +2,7 @@ package com.example.triade_monitoramento.data.repository
 
 import android.util.Log
 import com.example.triade_monitoramento.Session
+import com.example.triade_monitoramento.data.remote.NetworkModule
 import com.example.triade_monitoramento.data.remote.SupabaseClientProvider
 import com.example.triade_monitoramento.ui.components.UsuarioRow
 import io.github.jan.supabase.postgrest.from
@@ -104,14 +105,13 @@ class UsuarioRepository {
     suspend fun solicitarRecuperacaoSenha(email: String): Boolean {
         return try {
             val codigo = (100000..999999).random().toString()
-            val expiraEm = LocalDateTime.now().plusMinutes(10).toString()
 
             client
                 .from("usuario")
                 .update(
                     {
                         set("reset_code", codigo)
-                        set("reset_expires_at", expiraEm)
+                        set("reset_expires_at", "10min")
                     }
                 ) {
                     filter {
@@ -119,11 +119,19 @@ class UsuarioRepository {
                     }
                 }
 
-            Log.d("RESET_SENHA", "Código de recuperação para $email: $codigo")
+            val url = "http://18.220.119.76:1880/api/enviar-email"
+
+            val body = mapOf(
+                "email" to email,
+                "codigo" to codigo
+            )
+
+            NetworkModule.simplePost(url, body)
+
 
             true
         } catch (e: Exception) {
-            Log.e("RESET_SENHA", "Erro ao solicitar recuperação de senha", e)
+            Log.e("RESET_SENHA", "Erro ao solicitar recuperação", e)
             false
         }
     }
@@ -134,7 +142,7 @@ class UsuarioRepository {
         novaSenha: String
     ): Boolean {
         return try {
-            val result = client.postgrest.rpc(
+            client.postgrest.rpc(
                 function = "redefinir_senha_segura",
                 parameters = mapOf(
                     "p_email" to email,
@@ -143,7 +151,7 @@ class UsuarioRepository {
                 )
             )
 
-            result.decodeAs<Boolean>()
+            true
         } catch (e: Exception) {
             Log.e("RESET_SENHA", "Erro ao redefinir senha", e)
             false

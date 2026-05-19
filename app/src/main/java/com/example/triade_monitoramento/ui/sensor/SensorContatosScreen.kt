@@ -16,7 +16,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.triade_monitoramento.data.model.SensorNotificacaoDTO
 import com.example.triade_monitoramento.data.remote.SupabaseClientProvider
@@ -28,6 +32,54 @@ private val TriadeGreen = Color(0xFF769F86)
 private val TriadeRed = Color(0xFFC75C5C)
 private val CardLight = Color(0xFFF7F9F8)
 private val SuccessGreen = Color(0xFF2E7D32)
+
+class WhatsappVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val digitos = text.text.take(11) // estado sempre tem no máx 11 dígitos
+
+        // Monta a string exibida: +55 (XX) XXXXX-XXXX
+        val formatted = buildString {
+            append("+55 ")
+            digitos.forEachIndexed { i, c ->
+                when (i) {
+                    0    -> append("($c")
+                    2    -> append(") $c")
+                    7    -> append("-$c")
+                    else -> append(c)
+                }
+            }
+        }
+
+        // "+55 " tem 4 chars fixos no início
+        val prefixo = 4
+
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                val pos = when {
+                    offset == 0  -> 0
+                    offset == 1  -> 1
+                    offset == 2  -> 3
+                    offset <= 7  -> offset + 3
+                    offset <= 11 -> offset + 4
+                    else         -> formatted.length - prefixo
+                }
+                return (pos + prefixo).coerceIn(prefixo, formatted.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                val pos = (offset - prefixo).coerceAtLeast(0)
+                return when {
+                    pos <= 1  -> 0
+                    pos <= 3  -> pos - 1
+                    pos <= 10 -> pos - 3
+                    else      -> pos - 4
+                }.coerceIn(0, digitos.length)
+            }
+        }
+
+        return TransformedText(AnnotatedString(formatted), offsetMapping)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +98,7 @@ fun SensorContatosScreen(
         mutableStateOf<List<SensorNotificacaoDTO>>(emptyList())
     }
 
+    // Estado guarda APENAS dígitos — sem máscara
     var whatsappNovo by remember { mutableStateOf("") }
     var emailNovo by remember { mutableStateOf("") }
 
@@ -94,29 +147,21 @@ fun SensorContatosScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = CardLight
-                    )
+                    colors = CardDefaults.cardColors(containerColor = CardLight)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = sensorNome.ifBlank { sensorId },
                             style = MaterialTheme.typography.titleLarge,
                             color = Color.Black
                         )
-
                         Spacer(modifier = Modifier.height(4.dp))
-
                         Text(
                             text = "Sensor ID: $sensorId",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
-
                         Spacer(modifier = Modifier.height(8.dp))
-
                         Text(
                             text = "Todos os contatos ativos cadastrados aqui receberão alertas quando a temperatura sair dos limites.",
                             style = MaterialTheme.typography.bodyMedium,
@@ -132,12 +177,8 @@ fun SensorContatosScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        CircularProgressIndicator(
-                            color = TriadeGreen,
-                            strokeWidth = 2.dp
-                        )
+                        CircularProgressIndicator(color = TriadeGreen, strokeWidth = 2.dp)
                     }
-
                     Spacer(modifier = Modifier.height(20.dp))
                 }
 
@@ -155,22 +196,23 @@ fun SensorContatosScreen(
                     novoValor = whatsappNovo,
                     labelNovoValor = "Novo WhatsApp",
                     keyboardType = KeyboardType.Phone,
-                    onNovoValorChange = { whatsappNovo = it },
+
+                    onNovoValorChange = {
+                        whatsappNovo = it.filter { c -> c.isDigit() }.take(11)
+                    },
                     onAdicionar = {
                         scope.launch {
                             mensagem = null
 
-                            val numero = whatsappNovo.trim()
-
-                            if (numero.isBlank()) {
-                                mensagem = "Informe um número de WhatsApp."
+                            if (whatsappNovo.length < 11) {
+                                mensagem = "Informe um número de WhatsApp completo."
                                 return@launch
                             }
 
                             val sucesso = repository.adicionarNotificacao(
                                 sensorId = sensorId,
                                 tipo = "whatsapp",
-                                destino = numero
+                                destino = whatsappNovo // já são só dígitos
                             )
 
                             if (sucesso) {
@@ -185,15 +227,12 @@ fun SensorContatosScreen(
                     onExcluir = { contato ->
                         scope.launch {
                             mensagem = null
-
                             val id = contato.id
                             if (id == null) {
                                 mensagem = "Contato inválido."
                                 return@launch
                             }
-
                             val sucesso = repository.excluirNotificacao(id)
-
                             if (sucesso) {
                                 mensagem = "WhatsApp removido com sucesso."
                                 recarregar()
@@ -224,25 +263,20 @@ fun SensorContatosScreen(
                     onAdicionar = {
                         scope.launch {
                             mensagem = null
-
                             val email = emailNovo.trim()
-
                             if (email.isBlank()) {
                                 mensagem = "Informe um email."
                                 return@launch
                             }
-
                             if (!email.contains("@") || !email.contains(".")) {
                                 mensagem = "Informe um email válido."
                                 return@launch
                             }
-
                             val sucesso = repository.adicionarNotificacao(
                                 sensorId = sensorId,
                                 tipo = "email",
                                 destino = email
                             )
-
                             if (sucesso) {
                                 emailNovo = ""
                                 mensagem = "Email adicionado com sucesso."
@@ -255,15 +289,12 @@ fun SensorContatosScreen(
                     onExcluir = { contato ->
                         scope.launch {
                             mensagem = null
-
                             val id = contato.id
                             if (id == null) {
                                 mensagem = "Contato inválido."
                                 return@launch
                             }
-
                             val sucesso = repository.excluirNotificacao(id)
-
                             if (sucesso) {
                                 mensagem = "Email removido com sucesso."
                                 recarregar()
@@ -281,10 +312,8 @@ fun SensorContatosScreen(
                         it.contains("sucesso", ignoreCase = true) ||
                                 it.contains("adicionado", ignoreCase = true) ||
                                 it.contains("removido", ignoreCase = true) -> SuccessGreen
-
                         else -> TriadeRed
                     }
-
                     Text(
                         text = it,
                         color = cor,
@@ -314,28 +343,18 @@ private fun ContatoGrupoCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = CardLight
-        )
+        colors = CardDefaults.cardColors(containerColor = CardLight)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 iconeTipo()
-
                 Spacer(modifier = Modifier.width(8.dp))
-
                 Text(
                     text = titulo,
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.Black
                 )
-
                 Spacer(modifier = Modifier.weight(1f))
-
                 Text(
                     text = "${contatos.size} contato(s)",
                     style = MaterialTheme.typography.bodySmall,
@@ -351,17 +370,10 @@ private fun ContatoGrupoCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
-
                 Spacer(modifier = Modifier.height(12.dp))
             } else {
                 contatos.forEach { contato ->
-                    ContatoItem(
-                        contato = contato,
-                        onExcluir = {
-                            onExcluir(contato)
-                        }
-                    )
-
+                    ContatoItem(contato = contato, onExcluir = { onExcluir(contato) })
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -375,6 +387,11 @@ private fun ContatoGrupoCard(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                // Aplica máscara visual só no WhatsApp
+                visualTransformation = if (tipo == "whatsapp")
+                    WhatsappVisualTransformation()
+                else
+                    VisualTransformation.None,
                 colors = campoColors()
             )
 
@@ -403,31 +420,23 @@ private fun ContatoItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(14.dp)
-            )
+            .background(color = Color.White, shape = RoundedCornerShape(14.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = contato.destino,
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.Black
             )
-
             Spacer(modifier = Modifier.height(2.dp))
-
             Text(
                 text = if (contato.enabled) "Ativo para alertas" else "Desativado",
                 style = MaterialTheme.typography.bodySmall,
                 color = if (contato.enabled) TriadeGreen else Color.Gray
             )
         }
-
         IconButton(onClick = onExcluir) {
             Icon(
                 imageVector = Icons.Default.Delete,
