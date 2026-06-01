@@ -45,9 +45,9 @@ class TemperatureViewModel(
     fun startStreaming(
         id: String,
         historyRange: String = "1h",
-        historyEvery: String = "10s",
+        historyEvery: String = "5s",
         pollLatestMs: Long = 5_000L,
-        maxPoints: Int? = null
+        maxPoints: Int? = 360
     ) {
         stopStreaming()
 
@@ -66,13 +66,27 @@ class TemperatureViewModel(
                 val preparedHistory = applyLimit(history, maxPoints)
                 val latest = repo.latest(id)
 
+                val latestPoint =
+                    if (latest.ts != null && latest.temperatura != null && latest.umidade != null) {
+                        TemperaturePointDto(
+                            ts = latest.ts,
+                            temperatura = latest.temperatura,
+                            umidade = latest.umidade
+                        )
+                    } else {
+                        null
+                    }
+
+                val initialPoints = appendPointIfNew(preparedHistory, latestPoint)
+                    .let { applyLimit(it, maxPoints) }
+
                 _state.update {
                     it.copy(
                         isLoading = false,
                         latestTemp = latest.temperatura,
                         latestHum = latest.umidade,
                         latestTs = latest.ts,
-                        chartPoints = preparedHistory,
+                        chartPoints = initialPoints,
                         error = null
                     )
                 }
@@ -101,20 +115,7 @@ class TemperatureViewModel(
                         }
 
                     _state.update { currentState ->
-                        val currentPoints = currentState.chartPoints
-
-                        val appended =
-                            if (newPoint == null) {
-                                currentPoints
-                            } else if (
-                                currentPoints.isNotEmpty() &&
-                                currentPoints.last().ts == newPoint.ts
-                            ) {
-                                currentPoints
-                            } else {
-                                currentPoints + newPoint
-                            }
-
+                        val appended = appendPointIfNew(currentState.chartPoints, newPoint)
                         val prepared = applyLimit(appended, maxPoints)
 
                         currentState.copy(
@@ -134,6 +135,63 @@ class TemperatureViewModel(
                 }
 
                 delay(pollLatestMs)
+            }
+        }
+    }
+
+    fun refreshRealtime(
+        id: String,
+        historyRange: String = "1h",
+        historyEvery: String = "10s",
+        maxPoints: Int? = 360
+    ) {
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    periodStartIso = null,
+                    periodStopIso = null
+                )
+            }
+
+            try {
+                val history = repo.history(id, historyRange, historyEvery)
+                val latest = repo.latest(id)
+
+                val latestPoint =
+                    if (latest.ts != null && latest.temperatura != null && latest.umidade != null) {
+                        TemperaturePointDto(
+                            ts = latest.ts,
+                            temperatura = latest.temperatura,
+                            umidade = latest.umidade
+                        )
+                    } else {
+                        null
+                    }
+
+                val prepared = appendPointIfNew(history, latestPoint)
+                    .let { applyLimit(it, maxPoints) }
+
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        latestTemp = latest.temperatura,
+                        latestHum = latest.umidade,
+                        latestTs = latest.ts,
+                        chartPoints = prepared,
+                        error = null,
+                        periodStartIso = null,
+                        periodStopIso = null
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "Erro desconhecido"
+                    )
+                }
             }
         }
     }
@@ -272,6 +330,18 @@ class TemperatureViewModel(
         super.onCleared()
         stopStreaming()
         stopSensoresRealtime()
+    }
+
+    private fun appendPointIfNew(
+        currentPoints: List<TemperaturePointDto>,
+        newPoint: TemperaturePointDto?
+    ): List<TemperaturePointDto> {
+        if (newPoint == null) return currentPoints
+
+        val alreadyExists = currentPoints.any { it.ts == newPoint.ts }
+        if (alreadyExists) return currentPoints
+
+        return currentPoints + newPoint
     }
 
     private fun applyLimit(

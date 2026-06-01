@@ -307,6 +307,17 @@ class MainActivity : ComponentActivity() {
                                 onBackToRealtime = {
                                     filtroStartIso = null
                                     filtroStopIso = null
+
+                                    sensorSelecionado?.sensorId?.let { id ->
+                                        vm.stopStreaming()
+                                        vm.startStreaming(
+                                            id = id,
+                                            historyRange = "1h",
+                                            historyEvery = "10s",
+                                            pollLatestMs = 5_000L,
+                                            maxPoints = 360
+                                        )
+                                    }
                                 },
                                 onGoToPerfil = {
                                     telaAtual = Tela.PERFIL

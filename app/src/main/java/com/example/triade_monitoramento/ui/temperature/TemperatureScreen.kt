@@ -11,50 +11,18 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -78,8 +46,6 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -112,28 +78,14 @@ fun TemperatureScreen(
     var metricMenuExpanded by remember { mutableStateOf(false) }
     var selectedMetric by remember { mutableStateOf(ChartMetric.TEMPERATURE) }
     var clearChartSelectionSignal by remember { mutableIntStateOf(0) }
-    var selectedChartPointTs by remember {
-        mutableStateOf<String?>(null)
-    }
-    var refreshing by remember { mutableStateOf(false) }
-
-    val scope = rememberCoroutineScope()
+    var selectedChartPointTs by remember { mutableStateOf<String?>(null) }
 
     val pullRefreshState = rememberPullRefreshState(
-        refreshing = refreshing,
+        refreshing = state.isLoading,
         onRefresh = {
-            scope.launch {
-                refreshing = true
-                selectedChartPointTs = null
-                clearChartSelectionSignal++
-
-                if (currentSensor?.sensorId?.isNotBlank() == true) {
-                    onBackToRealtime()
-                }
-
-                delay(600)
-                refreshing = false
-            }
+            selectedChartPointTs = null
+            clearChartSelectionSignal++
+            onBackToRealtime()
         }
     )
 
@@ -142,13 +94,13 @@ fun TemperatureScreen(
             titulo = "Filtrar histórico",
             onBack = { showFilter = false },
             onApply = { startMillis, endMillis ->
-                val startIso = millisToIsoSaoPaulo(startMillis)
-                val stopIso = millisToIsoSaoPaulo(endMillis)
-
                 selectedChartPointTs = null
                 clearChartSelectionSignal++
                 showFilter = false
-                onApplyPeriod(startIso, stopIso)
+                onApplyPeriod(
+                    millisToIsoSaoPaulo(startMillis),
+                    millisToIsoSaoPaulo(endMillis)
+                )
             }
         )
         return
@@ -163,10 +115,8 @@ fun TemperatureScreen(
     val periodText = remember(state.periodStartIso, state.periodStopIso) {
         formatPeriodPtBr(state.periodStartIso, state.periodStopIso)
     }
-    val selectedPointForCurrentSensor = remember(
-        selectedChartPointTs,
-        state.chartPoints
-    ) {
+
+    val selectedPointForCurrentSensor = remember(selectedChartPointTs, state.chartPoints) {
         val tsSelecionado = selectedChartPointTs
 
         if (tsSelecionado.isNullOrBlank()) {
@@ -175,7 +125,6 @@ fun TemperatureScreen(
             state.chartPoints.minByOrNull { point ->
                 val pointMillis = parseChartTimeToEpochMillis(point.ts) ?: Long.MAX_VALUE
                 val selectedMillis = parseChartTimeToEpochMillis(tsSelecionado) ?: Long.MAX_VALUE
-
                 kotlin.math.abs(pointMillis - selectedMillis)
             }
         }
@@ -190,7 +139,6 @@ fun TemperatureScreen(
         onSensores = onGoToSensores,
         onSair = onSair
     ) { openDrawer ->
-
         ScreenContainer(background = background) {
             Box(
                 modifier = Modifier
@@ -207,11 +155,7 @@ fun TemperatureScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = {
-                                openDrawer()
-                            }
-                        ) {
+                        IconButton(onClick = { openDrawer() }) {
                             Icon(
                                 imageVector = Icons.Filled.Menu,
                                 contentDescription = "Abrir menu"
@@ -240,17 +184,15 @@ fun TemperatureScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = Color.White)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
                             SensorSelector(
                                 currentSensor = currentSensor,
                                 availableSensors = availableSensors,
                                 expanded = sensorMenuExpanded,
-                                onExpandedChange = {
-                                    sensorMenuExpanded = it
-                                },
+                                onExpandedChange = { sensorMenuExpanded = it },
                                 onSelectSensor = {
+                                    selectedChartPointTs = null
+                                    clearChartSelectionSignal++
                                     sensorMenuExpanded = false
                                     onSelectSensor(it)
                                 }
@@ -272,7 +214,7 @@ fun TemperatureScreen(
                                     append("Atual: ")
 
                                     if (temp != null) {
-                                        withStyle(style = SpanStyle(color = tempColor)) {
+                                        withStyle(SpanStyle(color = tempColor)) {
                                             append("%.1f °C".format(temp))
                                         }
                                     } else {
@@ -282,7 +224,7 @@ fun TemperatureScreen(
                                     append(" | ")
 
                                     if (hum != null) {
-                                        withStyle(style = SpanStyle(color = Color(0xFFC9BF5A))) {
+                                        withStyle(SpanStyle(color = Color(0xFFC9BF5A))) {
                                             append("%d %% UR".format(hum.roundToInt()))
                                         }
                                     } else {
@@ -298,11 +240,11 @@ fun TemperatureScreen(
                             MetricSelector(
                                 selectedMetric = selectedMetric,
                                 expanded = metricMenuExpanded,
-                                onExpandedChange = {
-                                    metricMenuExpanded = it
-                                },
+                                onExpandedChange = { metricMenuExpanded = it },
                                 onSelectMetric = {
                                     selectedMetric = it
+                                    selectedChartPointTs = null
+                                    clearChartSelectionSignal++
                                     metricMenuExpanded = false
                                 }
                             )
@@ -315,9 +257,7 @@ fun TemperatureScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Button(
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = accentColor
-                                    ),
+                                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                                     shape = RoundedCornerShape(14.dp),
                                     onClick = {
                                         selectedChartPointTs = null
@@ -388,74 +328,29 @@ fun TemperatureScreen(
                             if (periodText != null) {
                                 Spacer(Modifier.height(12.dp))
 
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = accentSoft),
-                                    shape = RoundedCornerShape(14.dp),
-                                    border = BorderStroke(1.dp, accentBorder)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = "Período selecionado",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = accentText,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-
-                                        Spacer(modifier = Modifier.height(4.dp))
-
-                                        Text(
-                                            text = periodText.removePrefix("Período: "),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            lineHeight = 16.sp
-                                        )
-                                    }
-                                }
+                                InfoCard(
+                                    title = "Período selecionado",
+                                    body = periodText.removePrefix("Período: "),
+                                    background = accentSoft,
+                                    border = accentBorder,
+                                    titleColor = accentText
+                                )
                             }
 
                             selectedPointForCurrentSensor?.let { point ->
                                 Spacer(Modifier.height(8.dp))
 
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = accentSoft),
-                                    shape = RoundedCornerShape(14.dp),
-                                    border = BorderStroke(1.dp, accentBorder)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = "Ponto selecionado",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = accentText,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-
-                                        Spacer(modifier = Modifier.height(4.dp))
-
-                                        Text(
-                                            text = "Data/hora: ${formatSelectedPointDateTime(point.ts)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            lineHeight = 16.sp
-                                        )
-
-                                        Text(
-                                            text = if (showHumidity) {
-                                                "Umidade: %.1f %%".format(point.umidade)
-                                            } else {
-                                                "Temperatura: %.2f °C".format(point.temperatura)
-                                            },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            lineHeight = 16.sp
-                                        )
-                                    }
-                                }
+                                InfoCard(
+                                    title = "Ponto selecionado",
+                                    body = if (showHumidity) {
+                                        "Data/hora: ${formatSelectedPointDateTime(point.ts)}\nUmidade: %.1f %%".format(point.umidade)
+                                    } else {
+                                        "Data/hora: ${formatSelectedPointDateTime(point.ts)}\nTemperatura: %.2f °C".format(point.temperatura)
+                                    },
+                                    background = accentSoft,
+                                    border = accentBorder,
+                                    titleColor = accentText
+                                )
                             }
 
                             state.error?.let {
@@ -485,12 +380,48 @@ fun TemperatureScreen(
                 }
 
                 PullRefreshIndicator(
-                    refreshing = refreshing,
+                    refreshing = state.isLoading,
                     state = pullRefreshState,
                     modifier = Modifier.align(Alignment.TopCenter),
                     contentColor = Color(0xFF769F86)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun InfoCard(
+    title: String,
+    body: String,
+    background: Color,
+    border: Color,
+    titleColor: Color
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = background),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, border)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = titleColor,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                lineHeight = 16.sp
+            )
         }
     }
 }
@@ -531,11 +462,7 @@ private fun SensorSelector(
                 )
 
                 Icon(
-                    imageVector = if (expanded) {
-                        Icons.Filled.KeyboardArrowUp
-                    } else {
-                        Icons.Filled.KeyboardArrowDown
-                    },
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = "Abrir lista de sensores"
                 )
             }
@@ -604,11 +531,7 @@ private fun MetricSelector(
                 )
 
                 Icon(
-                    imageVector = if (expanded) {
-                        Icons.Filled.KeyboardArrowUp
-                    } else {
-                        Icons.Filled.KeyboardArrowDown
-                    },
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = "Abrir opções de visualização"
                 )
             }
@@ -660,8 +583,6 @@ private fun TemperatureLineChart(
                 setScaleXEnabled(true)
                 setScaleYEnabled(false)
                 setPinchZoom(false)
-                extraBottomOffset = 16f
-                minOffset = 12f
                 isDoubleTapToZoomEnabled = true
                 setDragDecelerationEnabled(true)
                 setNoDataText("Sem dados para exibir")
@@ -669,53 +590,51 @@ private fun TemperatureLineChart(
                 isHighlightPerTapEnabled = true
                 marker = null
 
+                extraBottomOffset = 16f
+                minOffset = 12f
+
                 axisRight.isEnabled = true
 
                 xAxis.apply {
                     position = XAxis.XAxisPosition.BOTTOM
                     setDrawGridLines(true)
                     granularity = 1f
-                    setLabelCount(3, true)
+                    setLabelCount(4, true)
                     labelRotationAngle = -30f
                     textSize = 9f
                     yOffset = 8f
                     setAvoidFirstLastClipping(true)
                 }
 
-                axisLeft.apply {
-                    setDrawGridLines(true)
-                }
+                axisLeft.setDrawGridLines(true)
+                axisRight.setDrawGridLines(false)
 
-                axisRight.apply {
-                    setDrawGridLines(false)
-                }
-
-                val ds = LineDataSet(emptyList(), "Temperatura (°C)").apply {
+                val dataSet = LineDataSet(emptyList(), "Temperatura (°C)").apply {
                     setDrawCircles(false)
                     setDrawValues(false)
-                    lineWidth = 1.8f
-                    mode = LineDataSet.Mode.LINEAR
+                    lineWidth = 2.2f
+                    mode = LineDataSet.Mode.CUBIC_BEZIER
+                    cubicIntensity = 0.18f
                     color = android.graphics.Color.parseColor("#769F86")
                     highLightColor = android.graphics.Color.RED
                     setDrawHorizontalHighlightIndicator(false)
+                    setDrawVerticalHighlightIndicator(true)
                 }
 
-                data = LineData(ds)
+                data = LineData(dataSet)
             }
         },
         update = { chart ->
             val data = chart.data ?: return@AndroidView
-            val ds = data.getDataSetByIndex(0) as? LineDataSet ?: return@AndroidView
+            val dataSet = data.getDataSetByIndex(0) as? LineDataSet ?: return@AndroidView
 
-            val sortedPoints = points.sortedBy {
-                parseChartTimeToEpochMillis(it.ts) ?: Long.MAX_VALUE
-            }
+            val sortedPoints = points
+                .filter { !it.ts.isNullOrBlank() }
+                .sortedBy { parseChartTimeToEpochMillis(it.ts) ?: Long.MAX_VALUE }
 
-            chart.marker = null
-
-            if (clearSelectionSignal > 0) {
-                chart.highlightValues(null)
-                chart.highlightValue(null)
+            val entries = sortedPoints.mapIndexed { index, point ->
+                val y = if (showHumidity) point.umidade.toFloat() else point.temperatura.toFloat()
+                Entry(index.toFloat(), y)
             }
 
             val lineColor = if (showHumidity) {
@@ -724,51 +643,41 @@ private fun TemperatureLineChart(
                 android.graphics.Color.parseColor("#769F86")
             }
 
-            ds.color = lineColor
-            ds.label = if (showHumidity) "Umidade (%)" else "Temperatura (°C)"
-
-            val entries = sortedPoints.mapIndexed { index, point ->
-                val y = if (showHumidity) {
-                    point.umidade.toFloat()
-                } else {
-                    point.temperatura.toFloat()
-                }
-
-                Entry(index.toFloat(), y)
-            }
-
-            ds.values = entries
+            dataSet.color = lineColor
+            dataSet.label = if (showHumidity) "Umidade (%)" else "Temperatura (°C)"
+            dataSet.values = entries
 
             chart.xAxis.valueFormatter = object : ValueFormatter() {
                 override fun getFormattedValue(value: Float): String {
                     val index = value.roundToInt()
-
-                    if (index < 0 || index >= sortedPoints.size) return ""
-
-                    return formatChartTimeSeparated(sortedPoints[index].ts)
+                    return sortedPoints.getOrNull(index)?.ts?.let { formatChartTimeSeparated(it) } ?: ""
                 }
             }
 
+            val previousClearSignal = chart.tag as? Int
+            if (previousClearSignal != clearSelectionSignal) {
+                chart.highlightValues(null)
+                chart.highlightValue(null)
+                chart.tag = clearSelectionSignal
+            }
+
             chart.setOnTouchListener { _, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN,
-                    MotionEvent.ACTION_UP -> {
-                        val highlight = chart.getHighlightByTouchPoint(event.x, event.y)
+                if (event.action == MotionEvent.ACTION_UP) {
+                    val highlight = chart.getHighlightByTouchPoint(event.x, event.y)
 
-                        if (highlight == null) {
-                            chart.highlightValues(null)
-                            chart.highlightValue(null)
-                            onPointSelected(null)
-                            chart.invalidate()
-                        } else {
-                            val index = highlight.x.roundToInt()
-                            val point = sortedPoints.getOrNull(index)
+                    if (highlight == null) {
+                        chart.highlightValues(null)
+                        chart.highlightValue(null)
+                        onPointSelected(null)
+                    } else {
+                        val index = highlight.x.roundToInt()
+                        val point = sortedPoints.getOrNull(index)
 
-                            onPointSelected(point)
-                            chart.highlightValue(highlight)
-                            chart.invalidate()
-                        }
+                        onPointSelected(point)
+                        chart.highlightValue(highlight)
                     }
+
+                    chart.invalidate()
                 }
 
                 false
@@ -777,6 +686,7 @@ private fun TemperatureLineChart(
             if (entries.isNotEmpty()) {
                 chart.xAxis.axisMinimum = 0f
                 chart.xAxis.axisMaximum = (entries.size - 1).toFloat()
+                chart.xAxis.setLabelCount(calculateLabelCountForFullRange(sortedPoints), true)
 
                 val minY = entries.minOf { it.y }
                 val maxY = entries.maxOf { it.y }
@@ -787,8 +697,14 @@ private fun TemperatureLineChart(
                 chart.axisRight.axisMinimum = minY - padding
                 chart.axisRight.axisMaximum = maxY + padding
 
-                chart.fitScreen()
-                chart.xAxis.setLabelCount(calculateLabelCountForFullRange(sortedPoints), true)
+                if (entries.size > 300) {
+                    chart.setVisibleXRangeMaximum(300f)
+                }
+
+                chart.moveViewToX((entries.size - 1).toFloat())
+            } else {
+                dataSet.values = emptyList()
+                chart.xAxis.valueFormatter = null
             }
 
             data.notifyDataChanged()
