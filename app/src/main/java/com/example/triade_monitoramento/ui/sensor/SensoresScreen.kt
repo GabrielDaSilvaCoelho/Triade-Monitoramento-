@@ -38,6 +38,11 @@ data class SensorListItemUi(
     val umidadeAtual: Double?,
     val tempLimitMax: Double?,
     val tempLimitMin: Double?,
+
+    val totalOpenings: Int = 0,
+    val shortOpenings: Int = 0,
+    val longOpenings: Int = 0,
+
     val acknowledged: Boolean = false
 )
 
@@ -64,7 +69,7 @@ fun SensoresScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Sensores") },
+                title = { Text("Áreas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -263,6 +268,41 @@ private fun SensorListCard(
                     valor = sensor.umidadeAtual?.let {
                         "%.1f %%".format(it)
                     } ?: "-- %"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = TriadeBorder.copy(alpha = 0.35f))
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Porta (24h)",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = TextDark
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "< 1 min: ${sensor.shortOpenings}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Text(
+                    text = "> 5 min: ${sensor.longOpenings}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Text(
+                    text = "Total: ${sensor.totalOpenings}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
                 )
             }
 

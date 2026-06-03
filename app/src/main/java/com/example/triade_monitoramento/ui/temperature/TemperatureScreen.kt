@@ -11,18 +11,49 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,6 +73,7 @@ import com.example.triade_monitoramento.ui.components.MenuLateralTriade
 import com.example.triade_monitoramento.ui.navigation.ScreenContainer
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
@@ -51,6 +83,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private enum class ChartMetric {
@@ -125,7 +158,7 @@ fun TemperatureScreen(
             state.chartPoints.minByOrNull { point ->
                 val pointMillis = parseChartTimeToEpochMillis(point.ts) ?: Long.MAX_VALUE
                 val selectedMillis = parseChartTimeToEpochMillis(tsSelecionado) ?: Long.MAX_VALUE
-                kotlin.math.abs(pointMillis - selectedMillis)
+                abs(pointMillis - selectedMillis)
             }
         }
     }
@@ -374,7 +407,9 @@ fun TemperatureScreen(
                                 }
                             )
 
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(16.dp))
+
+
                         }
                     }
                 }
@@ -566,7 +601,7 @@ private fun TemperatureLineChart(
     AndroidView(
         modifier = Modifier
             .fillMaxWidth()
-            .height(340.dp)
+            .height(380.dp)
             .padding(horizontal = 4.dp, vertical = 1.dp)
             .border(
                 width = 2.dp,
@@ -586,14 +621,12 @@ private fun TemperatureLineChart(
                 isDoubleTapToZoomEnabled = true
                 setDragDecelerationEnabled(true)
                 setNoDataText("Sem dados para exibir")
-                legend.isEnabled = false
+                legend.isEnabled = true
                 isHighlightPerTapEnabled = true
                 marker = null
 
-                extraBottomOffset = 16f
+                extraBottomOffset = 18f
                 minOffset = 12f
-
-                axisRight.isEnabled = true
 
                 xAxis.apply {
                     position = XAxis.XAxisPosition.BOTTOM
@@ -606,51 +639,100 @@ private fun TemperatureLineChart(
                     setAvoidFirstLastClipping(true)
                 }
 
-                axisLeft.setDrawGridLines(true)
-                axisRight.setDrawGridLines(false)
-
-                val dataSet = LineDataSet(emptyList(), "Temperatura (°C)").apply {
-                    setDrawCircles(false)
-                    setDrawValues(false)
-                    lineWidth = 2.2f
-                    mode = LineDataSet.Mode.CUBIC_BEZIER
-                    cubicIntensity = 0.18f
-                    color = android.graphics.Color.parseColor("#769F86")
-                    highLightColor = android.graphics.Color.RED
-                    setDrawHorizontalHighlightIndicator(false)
-                    setDrawVerticalHighlightIndicator(true)
+                axisLeft.apply {
+                    setDrawGridLines(true)
                 }
 
-                data = LineData(dataSet)
+                axisRight.apply {
+                    isEnabled = true
+                    axisMinimum = -0.1f
+                    axisMaximum = 1.1f
+                    granularity = 1f
+                    setLabelCount(2, true)
+                    setDrawGridLines(false)
+                    valueFormatter = object : ValueFormatter() {
+                        override fun getFormattedValue(value: Float): String {
+                            return value.roundToInt().toString()
+                        }
+                    }
+                }
+
+                data = LineData()
             }
         },
         update = { chart ->
-            val data = chart.data ?: return@AndroidView
-            val dataSet = data.getDataSetByIndex(0) as? LineDataSet ?: return@AndroidView
-
             val sortedPoints = points
-                .filter { !it.ts.isNullOrBlank() }
+                .filter { it.ts.isNotBlank() }
                 .sortedBy { parseChartTimeToEpochMillis(it.ts) ?: Long.MAX_VALUE }
 
-            val entries = sortedPoints.mapIndexed { index, point ->
-                val y = if (showHumidity) point.umidade.toFloat() else point.temperatura.toFloat()
+            val mainEntries = sortedPoints.mapIndexed { index, point ->
+                val y = if (showHumidity) {
+                    point.umidade.toFloat()
+                } else {
+                    point.temperatura.toFloat()
+                }
+
                 Entry(index.toFloat(), y)
             }
 
-            val lineColor = if (showHumidity) {
+            val mainValues = mainEntries.map { it.y }
+
+            val minMainY = mainValues.minOrNull() ?: 0f
+            val maxMainY = mainValues.maxOrNull() ?: 1f
+            val rangeMainY = (maxMainY - minMainY).coerceAtLeast(1f)
+
+            val doorClosedY = minMainY - (rangeMainY * 0.25f)
+            val doorOpenY = minMainY - (rangeMainY * 0.10f)
+
+            val doorEntries = sortedPoints.mapIndexedNotNull { index, point ->
+                point.porta?.let { porta ->
+                    val y = if (porta >= 0.5) doorOpenY else doorClosedY
+                    Entry(index.toFloat(), y)
+                }
+            }
+
+            val mainColor = if (showHumidity) {
                 android.graphics.Color.parseColor("#C9BF5A")
             } else {
                 android.graphics.Color.parseColor("#769F86")
             }
 
-            dataSet.color = lineColor
-            dataSet.label = if (showHumidity) "Umidade (%)" else "Temperatura (°C)"
-            dataSet.values = entries
+            val mainDataSet = LineDataSet(
+                mainEntries,
+                if (showHumidity) "Umidade (%)" else "Temperatura (°C)"
+            ).apply {
+                axisDependency = YAxis.AxisDependency.LEFT
+                setDrawCircles(false)
+                setDrawValues(false)
+                lineWidth = 2.2f
+                mode = LineDataSet.Mode.CUBIC_BEZIER
+                cubicIntensity = 0.18f
+                color = mainColor
+                highLightColor = android.graphics.Color.RED
+                setDrawHorizontalHighlightIndicator(false)
+                setDrawVerticalHighlightIndicator(true)
+            }
+
+            val doorDataSet = LineDataSet(doorEntries, "Porta").apply {
+                axisDependency = YAxis.AxisDependency.LEFT
+                mode = LineDataSet.Mode.STEPPED
+                setDrawCircles(false)
+                setDrawValues(false)
+                lineWidth = 2.0f
+                color = android.graphics.Color.parseColor("#607D8B")
+                highLightColor = android.graphics.Color.RED
+                setDrawHorizontalHighlightIndicator(false)
+                setDrawVerticalHighlightIndicator(true)
+            }
+
+            chart.data = LineData(mainDataSet, doorDataSet)
 
             chart.xAxis.valueFormatter = object : ValueFormatter() {
                 override fun getFormattedValue(value: Float): String {
                     val index = value.roundToInt()
-                    return sortedPoints.getOrNull(index)?.ts?.let { formatChartTimeSeparated(it) } ?: ""
+                    return sortedPoints.getOrNull(index)?.ts?.let {
+                        formatChartTimeSeparated(it)
+                    } ?: ""
                 }
             }
 
@@ -683,25 +765,152 @@ private fun TemperatureLineChart(
                 false
             }
 
-            if (entries.isNotEmpty()) {
+            if (mainEntries.isNotEmpty()) {
                 chart.xAxis.axisMinimum = 0f
-                chart.xAxis.axisMaximum = (entries.size - 1).toFloat()
+                chart.xAxis.axisMaximum = (sortedPoints.size - 1).toFloat()
                 chart.xAxis.setLabelCount(calculateLabelCountForFullRange(sortedPoints), true)
 
-                val minY = entries.minOf { it.y }
-                val maxY = entries.maxOf { it.y }
+                val minY = mainEntries.minOf { it.y }
+                val maxY = mainEntries.maxOf { it.y }
                 val padding = ((maxY - minY) * 0.10f).coerceAtLeast(1f)
 
-                chart.axisLeft.axisMinimum = minY - padding
-                chart.axisLeft.axisMaximum = maxY + padding
-                chart.axisRight.axisMinimum = minY - padding
-                chart.axisRight.axisMaximum = maxY + padding
+                chart.axisLeft.axisMinimum = doorClosedY - (rangeMainY * 0.10f)
+                chart.axisLeft.axisMaximum = maxMainY + padding
+
+                chart.axisRight.axisMinimum = -0.1f
+                chart.axisRight.axisMaximum = 1.1f
+
+                if (sortedPoints.size > 300) {
+                    chart.setVisibleXRangeMaximum(300f)
+                }
+
+                chart.moveViewToX((sortedPoints.size - 1).toFloat())
+            }
+
+            chart.data.notifyDataChanged()
+            chart.notifyDataSetChanged()
+            chart.invalidate()
+        }
+    )
+}
+
+@Composable
+private fun DoorStateChart(
+    points: List<TemperaturePointDto>,
+    clearSelectionSignal: Int
+) {
+    AndroidView(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(170.dp)
+            .padding(horizontal = 4.dp, vertical = 1.dp)
+            .border(
+                width = 2.dp,
+                color = Color(0xFF607D8B),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(top = 8.dp),
+        factory = { context ->
+            LineChart(context).apply {
+                description.isEnabled = false
+                legend.isEnabled = true
+                setTouchEnabled(true)
+                setDragEnabled(true)
+                setScaleEnabled(true)
+                setScaleXEnabled(true)
+                setScaleYEnabled(false)
+                setPinchZoom(false)
+                isDoubleTapToZoomEnabled = true
+                setNoDataText("Sem dados de porta para exibir")
+
+                extraBottomOffset = 14f
+                minOffset = 12f
+
+                axisLeft.apply {
+                    axisMinimum = -0.1f
+                    axisMaximum = 1.1f
+                    granularity = 1f
+                    setLabelCount(2, true)
+                    setDrawGridLines(true)
+                    valueFormatter = object : ValueFormatter() {
+                        override fun getFormattedValue(value: Float): String {
+                            return when (value.roundToInt()) {
+                                0 -> "Fechada"
+                                1 -> "Aberta"
+                                else -> ""
+                            }
+                        }
+                    }
+                }
+
+                axisRight.isEnabled = false
+
+                xAxis.apply {
+                    position = XAxis.XAxisPosition.BOTTOM
+                    setDrawGridLines(true)
+                    granularity = 1f
+                    setLabelCount(4, true)
+                    labelRotationAngle = -30f
+                    textSize = 9f
+                    yOffset = 8f
+                    setAvoidFirstLastClipping(true)
+                }
+
+                val dataSet = LineDataSet(emptyList(), "Porta").apply {
+                    axisDependency = YAxis.AxisDependency.LEFT
+                    mode = LineDataSet.Mode.STEPPED
+                    setDrawCircles(false)
+                    setDrawValues(false)
+                    lineWidth = 2f
+                    color = android.graphics.Color.parseColor("#607D8B")
+                    highLightColor = android.graphics.Color.RED
+                    setDrawHorizontalHighlightIndicator(false)
+                    setDrawVerticalHighlightIndicator(true)
+                }
+
+                data = LineData(dataSet)
+            }
+        },
+        update = { chart ->
+            val data = chart.data ?: return@AndroidView
+            val dataSet = data.getDataSetByIndex(0) as? LineDataSet ?: return@AndroidView
+
+            val sortedPoints = points
+                .filter { !it.ts.isNullOrBlank() }
+                .sortedBy { parseChartTimeToEpochMillis(it.ts) ?: Long.MAX_VALUE }
+
+            val entries = sortedPoints.mapIndexedNotNull { index, point ->
+                point.porta?.let { porta ->
+                    Entry(index.toFloat(), if (porta.toInt() == 1) 1f else 0f)
+                }
+            }
+
+            dataSet.values = entries
+
+            chart.xAxis.valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    val index = value.roundToInt()
+                    return sortedPoints.getOrNull(index)?.ts?.let { formatChartTimeSeparated(it) } ?: ""
+                }
+            }
+
+            val previousClearSignal = chart.tag as? Int
+            if (previousClearSignal != clearSelectionSignal) {
+                chart.highlightValues(null)
+                chart.highlightValue(null)
+                chart.tag = clearSelectionSignal
+            }
+
+            if (entries.isNotEmpty()) {
+                chart.xAxis.axisMinimum = 0f
+                chart.xAxis.axisMaximum = (sortedPoints.size - 1).toFloat()
+                chart.xAxis.setLabelCount(calculateLabelCountForFullRange(sortedPoints), true)
 
                 if (entries.size > 300) {
                     chart.setVisibleXRangeMaximum(300f)
                 }
 
-                chart.moveViewToX((entries.size - 1).toFloat())
+                chart.moveViewToX((sortedPoints.size - 1).toFloat())
             } else {
                 dataSet.values = emptyList()
                 chart.xAxis.valueFormatter = null

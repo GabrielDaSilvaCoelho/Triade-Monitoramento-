@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +34,7 @@ import com.example.triade_monitoramento.ui.login.RecuperarSenhaScreen
 import com.example.triade_monitoramento.ui.perfil.PerfilScreen
 import com.example.triade_monitoramento.ui.perfil.UsuarioPerfil
 import com.example.triade_monitoramento.ui.sensor.CadastroSensorScreen
+import com.example.triade_monitoramento.ui.sensor.ConfiguracaoAlarmeDeTemperaturaScreen
 import com.example.triade_monitoramento.ui.sensor.SensorConfigScreen
 import com.example.triade_monitoramento.ui.sensor.SensorContatosScreen
 import com.example.triade_monitoramento.ui.sensor.SensorListItemUi
@@ -42,7 +44,7 @@ import com.example.triade_monitoramento.ui.temperature.TemperatureViewModel
 import com.example.triade_monitoramento.ui.temperature.TemperatureVmFactory
 import kotlinx.coroutines.launch
 
-@OptIn(androidx.compose.material.ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterialApi::class)
 class MainActivity : ComponentActivity() {
 
     private enum class Tela {
@@ -53,6 +55,7 @@ class MainActivity : ComponentActivity() {
         SENSORES,
         CONFIG_SENSOR,
         CONFIG_CONTATOS_SENSOR,
+        CONFIG_ALARME_TEMPERATURA,
         PERFIL,
         RECUPERAR_SENHA
     }
@@ -186,6 +189,7 @@ class MainActivity : ComponentActivity() {
                             Tela.SENSORES -> telaAtual = Tela.TEMPERATURE
                             Tela.CONFIG_SENSOR -> telaAtual = Tela.SENSORES
                             Tela.CONFIG_CONTATOS_SENSOR -> telaAtual = Tela.CONFIG_SENSOR
+                            Tela.CONFIG_ALARME_TEMPERATURA -> telaAtual = Tela.CONFIG_SENSOR
                             Tela.CADASTRO_SENSOR -> telaAtual = Tela.TEMPERATURE
                         }
                     }
@@ -487,6 +491,75 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onGerenciarContatos = {
                                         telaAtual = Tela.CONFIG_CONTATOS_SENSOR
+                                    },
+                                    onRelatorioPortas = {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "Relatório de portas abertas em desenvolvimento",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    onGerenciarAlarmes = {
+                                        telaAtual = Tela.CONFIG_ALARME_TEMPERATURA
+                                    },
+                                    onSensorExcluido = {
+                                        lifecycleScope.launch {
+                                            val repository =
+                                                SensorRepository(SupabaseClientProvider.client)
+
+                                            val sensores =
+                                                repository.buscarSensoresDoUsuario()
+
+                                            sensoresDaConta = sensores
+
+                                            sensorSelecionado = sensores.firstOrNull()?.let {
+                                                UserSensor(
+                                                    sensorId = it.sensorId,
+                                                    nome = it.nome ?: it.sensorId
+                                                )
+                                            }
+
+                                            sensorSelecionadoConfig = null
+
+                                            telaAtual = Tela.SENSORES
+                                        }
+                                    }
+                                )
+                            } else {
+                                telaAtual = Tela.SENSORES
+                            }
+                        }
+
+                        Tela.CONFIG_ALARME_TEMPERATURA -> {
+                            val sensor = sensorSelecionadoConfig
+
+                            if (sensor != null) {
+                                ConfiguracaoAlarmeDeTemperaturaScreen(
+                                    sensorId = sensor.sensorId,
+                                    nomeInicial = sensor.nome,
+                                    tempMaxInicial = sensor.tempLimitMax,
+                                    tempMinInicial = sensor.tempLimitMin,
+                                    onBack = {
+                                        lifecycleScope.launch {
+                                            val repository =
+                                                SensorRepository(SupabaseClientProvider.client)
+
+                                            val sensores =
+                                                repository.buscarSensoresDoUsuario()
+
+                                            sensoresDaConta = sensores
+
+                                            vm.startSensoresRealtime(
+                                                sensores = sensores.map {
+                                                    UserSensor(
+                                                        sensorId = it.sensorId,
+                                                        nome = it.nome ?: it.sensorId
+                                                    )
+                                                }
+                                            )
+
+                                            telaAtual = Tela.CONFIG_SENSOR
+                                        }
                                     },
                                     onSensorExcluido = {
                                         lifecycleScope.launch {
