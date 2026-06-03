@@ -6,12 +6,14 @@ import com.squareup.moshi.JsonClass
 data class TemperatureLatestDto(
     val ts: String?,
     val temperatura: Double?,
-    val umidade: Double?
+    val umidade: Double?,
+    val porta: Double?
 )
 
 @JsonClass(generateAdapter = true)
 data class TemperaturePointDto(
     val ts: String,
     val temperatura: Double,
-    val umidade: Double
+    val umidade: Double,
+    val porta: Double? = null
 )

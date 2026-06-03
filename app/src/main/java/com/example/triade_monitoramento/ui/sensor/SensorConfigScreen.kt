@@ -1,26 +1,28 @@
 package com.example.triade_monitoramento.ui.sensor
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.DoorFront
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.triade_monitoramento.data.remote.SupabaseClientProvider
-import com.example.triade_monitoramento.data.repository.SensorRepository
 import com.example.triade_monitoramento.ui.navigation.ScreenContainer
-import kotlinx.coroutines.launch
 
 private val TriadeGreen = Color(0xFF769F86)
-private val TriadeRed = Color(0xFFC75C5C)
-private val SuccessGreen = Color(0xFF2E7D32)
+private val TriadeBorder = Color(0xFF8AA796)
+private val TextDark = Color(0xFF1F1F1F)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,42 +33,14 @@ fun SensorConfigScreen(
     tempMinInicial: Double?,
     onBack: () -> Unit,
     onGerenciarContatos: () -> Unit,
+    onRelatorioPortas: () -> Unit,
+    onGerenciarAlarmes: () -> Unit,
     onSensorExcluido: () -> Unit
 ) {
-    var nomeSensor by remember { mutableStateOf(nomeInicial) }
-    var temperaturaMaxima by remember {
-        mutableStateOf(tempMaxInicial?.toString()?.replace(".", ",") ?: "")
-    }
-    var temperaturaMinima by remember {
-        mutableStateOf(tempMinInicial?.toString()?.replace(".", ",") ?: "")
-    }
-
-    var mensagem by remember { mutableStateOf<String?>(null) }
-    var loadingSalvar by remember { mutableStateOf(false) }
-    var loadingExcluir by remember { mutableStateOf(false) }
-
-    val repository = remember {
-        SensorRepository(SupabaseClientProvider.client)
-    }
-
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(sensorId) {
-        val sensor = repository.buscarSensorPorId(sensorId)
-
-        if (sensor != null) {
-            nomeSensor = sensor.nome ?: ""
-            temperaturaMaxima = sensor.tempLimitMax?.toString()?.replace(".", ",") ?: ""
-            temperaturaMinima = sensor.tempLimitMin?.toString()?.replace(".", ",") ?: ""
-        } else {
-            mensagem = "Sensor não encontrado."
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Configurar Sensor") },
+                title = { Text("Configurar Área") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -87,204 +61,122 @@ fun SensorConfigScreen(
                 modifier = Modifier
                     .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp)
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "Edite os dados do sensor e os limites para disparo de alertas.",
-                    style = MaterialTheme.typography.bodyMedium
+                    text = nomeInicial.ifBlank { sensorId },
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextDark,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "ID: $sensorId",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextDark.copy(alpha = 0.65f)
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                OutlinedTextField(
-                    value = sensorId,
-                    onValueChange = { },
-                    label = { Text("ID do Sensor") },
-                    modifier = Modifier.fillMaxWidth(),
-                    readOnly = true,
-                    singleLine = true,
-                    colors = campoColors()
+                SensorConfigMenuButton(
+                    title = "Gerenciar contatos de alerta",
+                    subtitle = "WhatsApp e e-mail para notificações.",
+                    icon = Icons.Default.Contacts,
+                    onClick = onGerenciarContatos
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedTextField(
-                    value = nomeSensor,
-                    onValueChange = { nomeSensor = it },
-                    label = { Text("Nome do Sensor") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = campoColors()
+                SensorConfigMenuButton(
+                    title = "Relatório de portas abertas",
+                    subtitle = "Aberturas curtas, normais, longas e total.",
+                    icon = Icons.Default.DoorFront,
+                    onClick = onRelatorioPortas
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedTextField(
-                    value = temperaturaMaxima,
-                    onValueChange = { temperaturaMaxima = it },
-                    label = { Text("Temperatura Máxima") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = campoColors()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = temperaturaMinima,
-                    onValueChange = { temperaturaMinima = it },
-                    label = { Text("Temperatura Mínima") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = campoColors()
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                OutlinedButton(
-                    onClick = onGerenciarContatos,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = TriadeGreen
-                    )
-                ) {
-                    Text("Gerenciar contatos de alerta")
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = {
-                        scope.launch {
-                            mensagem = null
-
-                            if (
-                                nomeSensor.isBlank() ||
-                                temperaturaMaxima.isBlank() ||
-                                temperaturaMinima.isBlank()
-                            ) {
-                                mensagem = "Preencha todos os campos."
-                                return@launch
-                            }
-
-                            val tempMax = temperaturaMaxima.replace(",", ".").toDoubleOrNull()
-                            val tempMin = temperaturaMinima.replace(",", ".").toDoubleOrNull()
-
-                            if (tempMax == null || tempMin == null) {
-                                mensagem = "Informe valores numéricos válidos."
-                                return@launch
-                            }
-
-                            if (tempMin >= tempMax) {
-                                mensagem = "A temperatura mínima deve ser menor que a máxima."
-                                return@launch
-                            }
-
-                            loadingSalvar = true
-
-                            val sucesso = repository.atualizarConfiguracaoSensor(
-                                sensorId = sensorId,
-                                nome = nomeSensor.trim(),
-                                tempLimitMax = tempMax,
-                                tempLimitMin = tempMin
-                            )
-
-                            loadingSalvar = false
-
-                            if (sucesso) {
-                                mensagem = "Configuração salva com sucesso!"
-                                onBack()
-                            } else {
-                                mensagem = "Erro ao salvar configuração. Caso o problema persista, contate a equipe técnica."
-                            }
-                        }
+                SensorConfigMenuButton(
+                    title = "Gerenciar alarmes",
+                    subtitle = buildString {
+                        append("Nome, temperatura mínima e máxima. ")
+                        append("Atual: ")
+                        append(tempMinInicial?.let { "%.1f".format(it) } ?: "--")
+                        append(" °C até ")
+                        append(tempMaxInicial?.let { "%.1f".format(it) } ?: "--")
+                        append(" °C")
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !loadingSalvar && !loadingExcluir,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = TriadeGreen,
-                        contentColor = Color.White,
-                        disabledContainerColor = Color.Gray
-                    )
-                ) {
-                    if (loadingSalvar) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.height(20.dp),
-                            strokeWidth = 2.dp,
-                            color = Color.White
-                        )
-                    } else {
-                        Text("Salvar alterações")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            mensagem = null
-                            loadingExcluir = true
-
-                            val sucesso = repository.excluirSensorDaConta(sensorId)
-
-                            loadingExcluir = false
-
-                            if (sucesso) {
-                                onSensorExcluido()
-                            } else {
-                                mensagem = "Erro ao excluir sensor. Caso o problema persista, contate a equipe técnica."
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !loadingSalvar && !loadingExcluir,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = TriadeRed
-                    )
-                ) {
-                    if (loadingExcluir) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.height(20.dp),
-                            strokeWidth = 2.dp,
-                            color = TriadeRed
-                        )
-                    } else {
-                        Text("Excluir sensor da conta")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                mensagem?.let {
-                    val cor = if (it.contains("sucesso", ignoreCase = true)) {
-                        SuccessGreen
-                    } else {
-                        TriadeRed
-                    }
-
-                    Text(
-                        text = it,
-                        color = cor,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
+                    icon = Icons.Default.Alarm,
+                    onClick = onGerenciarAlarmes
+                )
             }
         }
     }
 }
 
 @Composable
-private fun campoColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = TriadeGreen,
-    focusedLabelColor = TriadeGreen,
-    cursorColor = TriadeGreen
-)
+private fun SensorConfigMenuButton(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 88.dp),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(2.dp, TriadeBorder),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = TextDark
+        ),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = TriadeGreen,
+                modifier = Modifier.size(28.dp)
+            )
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextDark
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextDark.copy(alpha = 0.68f)
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = TriadeGreen
+            )
+        }
+    }
+}
