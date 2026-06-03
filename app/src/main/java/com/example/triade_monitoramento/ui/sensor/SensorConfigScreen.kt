@@ -33,7 +33,10 @@ fun SensorConfigScreen(
     tempMinInicial: Double?,
     onBack: () -> Unit,
     onGerenciarContatos: () -> Unit,
+
+    // NOVO: função que será chamada ao clicar no botão de relatório de portas abertas
     onRelatorioPortas: () -> Unit,
+
     onGerenciarAlarmes: () -> Unit,
     onSensorExcluido: () -> Unit
 ) {
@@ -92,6 +95,7 @@ fun SensorConfigScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // NOVO: botão que abre a tela de relatório de portas abertas
                 SensorConfigMenuButton(
                     title = "Relatório de portas abertas",
                     subtitle = "Aberturas curtas, normais, longas e total.",
