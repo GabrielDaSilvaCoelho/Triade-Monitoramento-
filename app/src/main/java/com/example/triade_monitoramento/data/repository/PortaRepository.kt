@@ -8,8 +8,8 @@ import com.example.triade_monitoramento.ui.sensor.PortaConfigRequestDto
 data class PortaEventosResumo(
     val sensorId: String,
     val sensorNome: String,
-    val yellowAfterMinutes: Int,
-    val redAfterMinutes: Int,
+    val yellowAfterSeconds: Int,
+    val redAfterSeconds: Int,
     val amarelos: Int,
     val vermelhos: Int,
     val eventos: List<PortaAbertaItem>
@@ -20,8 +20,8 @@ class PortaRepository(
 ) {
     suspend fun buscarEventosPorta(
         sensorId: String,
-        yellow: Int = 1,
-        red: Int = 5
+        yellow: Int = 60,
+        red: Int = 300
     ): PortaEventosResumo {
         val response = api.buscarEventosPorta(
             sensorId = sensorId,
@@ -39,7 +39,7 @@ class PortaRepository(
                 dataHora = evento.openedAt ?: "--",
                 openedAt = evento.openedAt,
                 closedAt = evento.closedAt,
-                durationMin = evento.durationMin,
+                durationSeconds = evento.durationSeconds,
                 nivel = evento.nivel,
                 status = when (evento.nivel.lowercase()) {
                     "amarelo" -> "Alerta amarelo"
@@ -52,8 +52,8 @@ class PortaRepository(
         return PortaEventosResumo(
             sensorId = response.sensorId ?: sensorId,
             sensorNome = nomeSensor,
-            yellowAfterMinutes = response.yellowAfterMinutes,
-            redAfterMinutes = response.redAfterMinutes,
+            yellowAfterSeconds = response.yellowAfterSeconds,
+            redAfterSeconds = response.redAfterSeconds,
             amarelos = response.amarelos,
             vermelhos = response.vermelhos,
             eventos = eventos
@@ -66,14 +66,14 @@ class PortaRepository(
 
     suspend fun salvarConfigPorta(
         sensorId: String,
-        yellowAfterMinutes: Int,
-        redAfterMinutes: Int
+        yellowAfterSeconds: Int,
+        redAfterSeconds: Int
     ): PortaConfigDto {
         return api.salvarConfigPorta(
             PortaConfigRequestDto(
                 sensorId = sensorId,
-                yellowAfterMinutes = yellowAfterMinutes,
-                redAfterMinutes = redAfterMinutes
+                yellowAfterSeconds = yellowAfterSeconds,
+                redAfterSeconds = redAfterSeconds
             )
         )
     }

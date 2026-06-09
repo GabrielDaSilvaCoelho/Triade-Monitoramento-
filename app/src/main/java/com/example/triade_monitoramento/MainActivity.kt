@@ -94,8 +94,8 @@ class MainActivity : ComponentActivity() {
                             PortaEventosResumo(
                                 sensorId = "",
                                 sensorNome = "",
-                                yellowAfterMinutes = 1,
-                                redAfterMinutes = 5,
+                                yellowAfterSeconds = 60,
+                                redAfterSeconds = 300,
                                 amarelos = 0,
                                 vermelhos = 0,
                                 eventos = emptyList()
@@ -107,8 +107,8 @@ class MainActivity : ComponentActivity() {
                     var erroPortas by remember { mutableStateOf<String?>(null) }
 
                     var mostrarDialogConfigPorta by remember { mutableStateOf(false) }
-                    var yellowConfigText by remember { mutableStateOf("1") }
-                    var redConfigText by remember { mutableStateOf("5") }
+                    var yellowConfigText by remember { mutableStateOf("60") }
+                    var redConfigText by remember { mutableStateOf("300") }
 
                     val temperatureRepo = remember {
                         TemperatureRepository(NetworkModule.temperatureApi)
@@ -252,7 +252,7 @@ class MainActivity : ComponentActivity() {
                                             yellowConfigText = it
                                         },
                                         label = {
-                                            Text("Tempo amarelo (min)")
+                                            Text("Tempo amarelo (seg)")
                                         },
                                         singleLine = true
                                     )
@@ -267,7 +267,7 @@ class MainActivity : ComponentActivity() {
                                             redConfigText = it
                                         },
                                         label = {
-                                            Text("Tempo vermelho (min)")
+                                            Text("Tempo vermelho (seg)")
                                         },
                                         singleLine = true
                                     )
@@ -311,8 +311,8 @@ class MainActivity : ComponentActivity() {
                                             try {
                                                 portaRepository.salvarConfigPorta(
                                                     sensorId = sensorId,
-                                                    yellowAfterMinutes = yellow,
-                                                    redAfterMinutes = red
+                                                    yellowAfterSeconds = yellow,
+                                                    redAfterSeconds = red
                                                 )
 
                                                 portasResumo = portaRepository.buscarEventosPorta(
@@ -321,8 +321,8 @@ class MainActivity : ComponentActivity() {
                                                     red = red
                                                 )
 
-                                                yellowConfigText = portasResumo.yellowAfterMinutes.toString()
-                                                redConfigText = portasResumo.redAfterMinutes.toString()
+                                                yellowConfigText = portasResumo.yellowAfterSeconds.toString()
+                                                redConfigText = portasResumo.redAfterSeconds.toString()
 
                                                 mostrarDialogConfigPorta = false
 
@@ -672,15 +672,15 @@ class MainActivity : ComponentActivity() {
                                                     portasResumo =
                                                         portaRepository.buscarEventosPorta(
                                                             sensorId = sensorId,
-                                                            yellow = config.yellowAfterMinutes,
-                                                            red = config.redAfterMinutes
+                                                            yellow = config.yellowAfterSeconds,
+                                                            red = config.redAfterSeconds
                                                         )
 
                                                     yellowConfigText =
-                                                        portasResumo.yellowAfterMinutes.toString()
+                                                        portasResumo.yellowAfterSeconds.toString()
 
                                                     redConfigText =
-                                                        portasResumo.redAfterMinutes.toString()
+                                                        portasResumo.redAfterSeconds.toString()
                                                 } catch (e: Exception) {
                                                     erroPortas =
                                                         e.message ?: "Erro ao carregar eventos de porta"
@@ -805,12 +805,12 @@ class MainActivity : ComponentActivity() {
                                 sensorNome = portasResumo.sensorNome,
                                 amarelos = portasResumo.amarelos,
                                 vermelhos = portasResumo.vermelhos,
-                                yellowAfterMinutes = portasResumo.yellowAfterMinutes,
-                                redAfterMinutes = portasResumo.redAfterMinutes,
+                                yellowAfterSeconds = portasResumo.yellowAfterSeconds,
+                                redAfterSeconds = portasResumo.redAfterSeconds,
                                 portasAbertas = portasResumo.eventos,
                                 onConfigurarTempos = {
-                                    yellowConfigText = portasResumo.yellowAfterMinutes.toString()
-                                    redConfigText = portasResumo.redAfterMinutes.toString()
+                                    yellowConfigText = portasResumo.yellowAfterSeconds.toString()
+                                    redConfigText = portasResumo.redAfterSeconds.toString()
                                     mostrarDialogConfigPorta = true
                                 },
                                 onRefresh = {
@@ -821,12 +821,12 @@ class MainActivity : ComponentActivity() {
                                             portasResumo =
                                                 portaRepository.buscarEventosPorta(
                                                     sensorId = sensorId,
-                                                    yellow = config.yellowAfterMinutes,
-                                                    red = config.redAfterMinutes
+                                                    yellow = config.yellowAfterSeconds,
+                                                    red = config.redAfterSeconds
                                                 )
 
-                                            yellowConfigText = portasResumo.yellowAfterMinutes.toString()
-                                            redConfigText = portasResumo.redAfterMinutes.toString()
+                                            yellowConfigText = portasResumo.yellowAfterSeconds.toString()
+                                            redConfigText = portasResumo.redAfterSeconds.toString()
                                         }
                                     }
                                 },

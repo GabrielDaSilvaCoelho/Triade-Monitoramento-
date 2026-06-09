@@ -47,14 +47,14 @@ private val TextDark = Color(0xFF1F1F1F)
 @Composable
 fun DoorStatsConfigScreen(
     currentRange: String = "24h",
-    currentShortLimitMin: Int = 1,
-    currentLongLimitMin: Int = 5,
+    currentShortLimitSeconds: Int = 60,
+    currentLongLimitSeconds: Int = 300,
     onBack: () -> Unit,
-    onSave: (range: String, shortLimitMin: Int, longLimitMin: Int) -> Unit
+    onSave: (range: String, shortLimitSeconds: Int, longLimitSeconds: Int) -> Unit
 ) {
     var selectedRange by remember { mutableStateOf(currentRange) }
-    var shortLimitText by remember { mutableStateOf(currentShortLimitMin.toString()) }
-    var longLimitText by remember { mutableStateOf(currentLongLimitMin.toString()) }
+    var shortLimitText by remember { mutableStateOf(currentShortLimitSeconds.toString()) }
+    var longLimitText by remember { mutableStateOf(currentLongLimitSeconds.toString()) }
 
     val shortLimit = shortLimitText.toIntOrNull()
     val longLimit = longLimitText.toIntOrNull()
@@ -95,7 +95,7 @@ fun DoorStatsConfigScreen(
                 verticalArrangement = Arrangement.Top
             ) {
                 Text(
-                    text = "Defina o período analisado e os limites usados para classificar as aberturas da porta.",
+                    text = "Defina o período analisado e os limites em segundos usados para classificar as aberturas da porta.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextDark
                 )
@@ -146,10 +146,10 @@ fun DoorStatsConfigScreen(
                         OutlinedTextField(
                             value = shortLimitText,
                             onValueChange = { value ->
-                                shortLimitText = value.filter { it.isDigit() }.take(4)
+                                shortLimitText = value.filter { it.isDigit() }.take(6)
                             },
-                            label = { Text("Abertura curta menor que") },
-                            suffix = { Text("min") },
+                            label = { Text("Alerta amarelo a partir de") },
+                            suffix = { Text("seg") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
@@ -160,10 +160,10 @@ fun DoorStatsConfigScreen(
                         OutlinedTextField(
                             value = longLimitText,
                             onValueChange = { value ->
-                                longLimitText = value.filter { it.isDigit() }.take(4)
+                                longLimitText = value.filter { it.isDigit() }.take(6)
                             },
-                            label = { Text("Abertura longa maior que") },
-                            suffix = { Text("min") },
+                            label = { Text("Alerta vermelho a partir de") },
+                            suffix = { Text("seg") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
@@ -174,9 +174,9 @@ fun DoorStatsConfigScreen(
                         Text(
                             text = buildString {
                                 append("Regra atual: ")
-                                append("curta < ${shortLimitText.ifBlank { "--" }} min")
+                                append("amarelo ≥ ${shortLimitText.ifBlank { "--" }} seg")
                                 append(" | ")
-                                append("longa > ${longLimitText.ifBlank { "--" }} min")
+                                append("vermelho ≥ ${longLimitText.ifBlank { "--" }} seg")
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = if (isValid) TextDark.copy(alpha = 0.75f) else Color.Red
@@ -186,7 +186,7 @@ fun DoorStatsConfigScreen(
                             Spacer(modifier = Modifier.height(6.dp))
 
                             Text(
-                                text = "Informe valores válidos. O limite curto precisa ser menor que o limite longo.",
+                                text = "Informe valores válidos em segundos. O limite amarelo precisa ser menor que o limite vermelho.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.Red
                             )

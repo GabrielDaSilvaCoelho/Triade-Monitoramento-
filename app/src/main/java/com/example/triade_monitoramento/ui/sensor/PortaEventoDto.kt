@@ -6,7 +6,7 @@ data class PortaEventoDto(
     val sensorNome: String,
     val openedAt: String?,
     val closedAt: String?,
-    val durationMin: Double,
+    val durationSeconds: Double,
     val nivel: String
 
 )

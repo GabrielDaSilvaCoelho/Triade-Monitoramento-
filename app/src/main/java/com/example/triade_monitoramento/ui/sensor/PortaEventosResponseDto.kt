@@ -3,11 +3,11 @@ package com.example.triade_monitoramento.data.remote.dto
 data class PortaEventosResponseDto(
     val sensorId: String?,
     val sensorNome: String?,
-    val yellowAfterMinutes: Int,
-    val redAfterMinutes: Int,
+    val yellowAfterSeconds: Int,
+    val redAfterSeconds: Int,
     val amarelos: Int,
     val vermelhos: Int,
-    val eventos: List<PortaOcorrenciaDto>
+    val eventos: List<PortaEventoDto>
 )
 
 data class PortaOcorrenciaDto(

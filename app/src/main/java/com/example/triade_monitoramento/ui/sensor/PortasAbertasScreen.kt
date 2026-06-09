@@ -65,7 +65,7 @@ data class PortaAbertaItem(
     val status: String = "Porta aberta",
     val openedAt: String? = dataHora,
     val closedAt: String? = null,
-    val durationMin: Double = 0.0,
+    val durationSeconds: Double = 0.0,
     val nivel: String = "normal"
 )
 
@@ -98,8 +98,8 @@ fun PortasAbertasScreen(
     sensorNome: String,
     amarelos: Int,
     vermelhos: Int,
-    yellowAfterMinutes: Int,
-    redAfterMinutes: Int,
+    yellowAfterSeconds: Int,
+    redAfterSeconds: Int,
     portasAbertas: List<PortaAbertaItem>,
     onConfigurarTempos: () -> Unit,
     onBack: () -> Unit,
@@ -119,10 +119,10 @@ fun PortasAbertasScreen(
     val totalEventos = eventosFiltrados.size
     val totalAmarelos = eventosFiltrados.count { it.nivel.equals("amarelo", ignoreCase = true) }
     val totalVermelhos = eventosFiltrados.count { it.nivel.equals("vermelho", ignoreCase = true) }
-    val totalAbertoMin = eventosFiltrados.sumOf { it.durationMin }
-    val maiorAberturaMin = eventosFiltrados.maxOfOrNull { it.durationMin } ?: 0.0
-    val mediaAberturaMin = if (eventosFiltrados.isNotEmpty()) {
-        eventosFiltrados.map { it.durationMin }.average()
+    val totalAbertoSeconds = eventosFiltrados.sumOf { it.durationSeconds }
+    val maiorAberturaSeconds = eventosFiltrados.maxOfOrNull { it.durationSeconds } ?: 0
+    val mediaAberturaSeconds = if (eventosFiltrados.isNotEmpty()) {
+        eventosFiltrados.map { it.durationSeconds }.average()
     } else {
         0.0
     }
@@ -212,9 +212,9 @@ fun PortasAbertasScreen(
                         totalEventos = totalEventos,
                         totalAmarelos = totalAmarelos,
                         totalVermelhos = totalVermelhos,
-                        totalAbertoMin = totalAbertoMin,
-                        mediaAberturaMin = mediaAberturaMin,
-                        maiorAberturaMin = maiorAberturaMin
+                        totalAbertoSeconds = totalAbertoSeconds.toDouble(),
+                        mediaAberturaSeconds = mediaAberturaSeconds,
+                        maiorAberturaSeconds = maiorAberturaSeconds.toDouble()
                     )
                 }
 
@@ -227,7 +227,7 @@ fun PortasAbertasScreen(
                             modifier = Modifier.weight(1f),
                             titulo = "Amarelos",
                             total = totalAmarelos,
-                            descricao = "≥ $yellowAfterMinutes min",
+                            descricao = "≥ $yellowAfterSeconds seg",
                             cor = Amarelo
                         )
 
@@ -235,7 +235,7 @@ fun PortasAbertasScreen(
                             modifier = Modifier.weight(1f),
                             titulo = "Vermelhos",
                             total = totalVermelhos,
-                            descricao = "≥ $redAfterMinutes min",
+                            descricao = "≥ $redAfterSeconds seg",
                             cor = Vermelho
                         )
                     }
@@ -243,8 +243,8 @@ fun PortasAbertasScreen(
 
                 item {
                     ConfiguracaoAtualCard(
-                        yellowAfterMinutes = yellowAfterMinutes,
-                        redAfterMinutes = redAfterMinutes,
+                        yellowAfterSeconds = yellowAfterSeconds,
+                        redAfterSeconds = redAfterSeconds,
                         onConfigurarTempos = onConfigurarTempos
                     )
                 }
@@ -366,9 +366,9 @@ private fun ResumoGeralCard(
     totalEventos: Int,
     totalAmarelos: Int,
     totalVermelhos: Int,
-    totalAbertoMin: Double,
-    mediaAberturaMin: Double,
-    maiorAberturaMin: Double
+    totalAbertoSeconds: Double,
+    mediaAberturaSeconds: Double,
+    maiorAberturaSeconds: Double
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -388,9 +388,9 @@ private fun ResumoGeralCard(
             LinhaResumo("Total de ocorrências", totalEventos.toString())
             LinhaResumo("Amarelos", totalAmarelos.toString())
             LinhaResumo("Vermelhos", totalVermelhos.toString())
-            LinhaResumo("Tempo total aberta", formatarDuracao(totalAbertoMin))
-            LinhaResumo("Tempo médio", formatarDuracao(mediaAberturaMin))
-            LinhaResumo("Maior abertura", formatarDuracao(maiorAberturaMin))
+            LinhaResumo("Tempo total aberta", formatarDuracao(totalAbertoSeconds))
+            LinhaResumo("Tempo médio", formatarDuracao(mediaAberturaSeconds))
+            LinhaResumo("Maior abertura", formatarDuracao(maiorAberturaSeconds))
         }
     }
 }
@@ -445,8 +445,8 @@ private fun ResumoAlertaCard(
 
 @Composable
 private fun ConfiguracaoAtualCard(
-    yellowAfterMinutes: Int,
-    redAfterMinutes: Int,
+    yellowAfterSeconds: Int,
+    redAfterSeconds: Int,
     onConfigurarTempos: () -> Unit
 ) {
     Card(
@@ -460,12 +460,12 @@ private fun ConfiguracaoAtualCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Amarelo: porta aberta por $yellowAfterMinutes minuto(s)",
+                text = "Amarelo: porta aberta por $yellowAfterSeconds segundo(s)",
                 color = TextoSecundario
             )
 
             Text(
-                text = "Vermelho: porta aberta por $redAfterMinutes minuto(s)",
+                text = "Vermelho: porta aberta por $redAfterSeconds segundo(s)",
                 color = TextoSecundario
             )
 
@@ -570,7 +570,7 @@ private fun PortaAbertaCard(item: PortaAbertaItem) {
                 )
 
                 Text(
-                    text = "Duração: ${formatarDuracao(item.durationMin)}",
+                    text = "Duração: ${formatarDuracao(item.durationSeconds)}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -620,7 +620,7 @@ private fun List<PortaAbertaItem>.filtrarPorNivel(ordenacao: OrdenacaoFiltro): L
 
 private fun List<PortaAbertaItem>.ordenarEventos(ordenacao: OrdenacaoFiltro): List<PortaAbertaItem> {
     return when (ordenacao) {
-        OrdenacaoFiltro.MAIOR_DURACAO -> sortedByDescending { it.durationMin }
+        OrdenacaoFiltro.MAIOR_DURACAO -> sortedByDescending { it.durationSeconds }
         else -> sortedByDescending { it.openedAt.toLocalDateTimeOrNull() }
     }
 }
@@ -643,17 +643,22 @@ private fun formatarDataHora(valor: String?): String {
     return dataHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
 }
 
-private fun formatarDuracao(minutosDouble: Double): String {
-    val minutosTotais = minutosDouble.toInt()
-    val horas = minutosTotais / 60
-    val minutos = minutosTotais % 60
+private fun formatarDuracao(segundosDouble: Double): String {
+    val segundosTotais = segundosDouble.toInt()
+    val horas = segundosTotais / 3600
+    val minutos = (segundosTotais % 3600) / 60
+    val segundos = segundosTotais % 60
 
     return when {
         horas > 0 && minutos > 0 -> "${horas}h ${minutos}min"
         horas > 0 -> "${horas}h"
-        else -> "${minutos}min"
+        minutos > 0 && segundos > 0 -> "${minutos}min ${segundos}s"
+        minutos > 0 -> "${minutos}min"
+        else -> "${segundos}s"
     }
 }
+
+private fun formatarDuracao(segundos: Int): String = formatarDuracao(segundos.toDouble())
 
 private fun String?.toLocalDateOrNull(): LocalDate? {
     return this.toLocalDateTimeOrNull()?.toLocalDate()
