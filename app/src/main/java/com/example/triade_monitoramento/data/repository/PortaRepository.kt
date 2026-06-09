@@ -5,7 +5,6 @@ import com.example.triade_monitoramento.ui.sensor.PortaAbertaItem
 import com.example.triade_monitoramento.ui.sensor.PortaConfigDto
 import com.example.triade_monitoramento.ui.sensor.PortaConfigRequestDto
 
-
 data class PortaEventosResumo(
     val sensorId: String,
     val sensorNome: String,
@@ -35,13 +34,17 @@ class PortaRepository(
         val eventos = response.eventos.map { evento ->
             PortaAbertaItem(
                 sensorId = evento.sensorId,
-                sensorNome = evento.sensorNome,
-                local = "Sensor ${evento.sensorNome}",
+                sensorNome = evento.sensorNome.ifBlank { nomeSensor },
+                local = evento.sensorNome.ifBlank { nomeSensor },
                 dataHora = evento.openedAt ?: "--",
-                status = when (evento.nivel) {
-                    "amarelo" -> "Alerta amarelo - ${evento.durationMin} min"
-                    "vermelho" -> "Alerta vermelho - ${evento.durationMin} min"
-                    else -> "Normal - ${evento.durationMin} min"
+                openedAt = evento.openedAt,
+                closedAt = evento.closedAt,
+                durationMin = evento.durationMin,
+                nivel = evento.nivel,
+                status = when (evento.nivel.lowercase()) {
+                    "amarelo" -> "Alerta amarelo"
+                    "vermelho" -> "Alerta vermelho"
+                    else -> "Normal"
                 }
             )
         }
@@ -57,9 +60,7 @@ class PortaRepository(
         )
     }
 
-    suspend fun buscarConfigPorta(
-        sensorId: String
-    ): PortaConfigDto {
+    suspend fun buscarConfigPorta(sensorId: String): PortaConfigDto {
         return api.buscarConfigPorta(sensorId)
     }
 
@@ -68,7 +69,6 @@ class PortaRepository(
         yellowAfterMinutes: Int,
         redAfterMinutes: Int
     ): PortaConfigDto {
-
         return api.salvarConfigPorta(
             PortaConfigRequestDto(
                 sensorId = sensorId,
