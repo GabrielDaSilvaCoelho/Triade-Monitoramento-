@@ -291,6 +291,12 @@ class SensorRepository(
             val userId = Session.userId ?: return false
 
             supabase
+                .from("sensor_notificacoes")
+                .delete {
+                    filter { eq("sensor_id", sensorId) }
+                }
+
+            supabase
                 .from("alert_rules")
                 .delete {
                     filter { eq("sensor_id", sensorId) }

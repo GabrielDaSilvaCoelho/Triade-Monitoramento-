@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Credentials
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
@@ -18,9 +19,15 @@ import java.util.concurrent.TimeUnit
 
 object NetworkModule {
 
+    private const val BASIC_AUTH_USER = "reader"
+    private const val BASIC_AUTH_PASSWORD = "reader"
+
     private val apiKeyInterceptor = Interceptor { chain ->
         val requestBuilder = chain.request().newBuilder()
         val apiKey = BuildConfig.API_KEY.trim()
+        val basicCredentials = Credentials.basic(BASIC_AUTH_USER, BASIC_AUTH_PASSWORD)
+
+        requestBuilder.header("Authorization", basicCredentials)
 
         if (apiKey.isNotEmpty()) {
             requestBuilder.addHeader("X-API-Key", apiKey)
