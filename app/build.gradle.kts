@@ -27,7 +27,7 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
 
         // Retrofit base URL (tem que terminar com /)
-        buildConfigField("String", "BASE_URL", "\"http://18.220.119.76:1880/\"")
+        buildConfigField("String", "BASE_URL", "\"http://192.168.1.25:1880/\"")
 
         // Se você usa no header X-API-Key no NetworkModule
         val apiKey = providers.gradleProperty("API_KEY").orNull ?: ""

@@ -3,7 +3,7 @@ package com.example.triade_monitoramento.data.model
 import com.squareup.moshi.Json
 
 data class LatestTemperatureDto(
-    @Json(name = "_time")
+    @Json(name = "timestamp")
     val ts: String? = null,
 
     @Json(name = "temperatura")
