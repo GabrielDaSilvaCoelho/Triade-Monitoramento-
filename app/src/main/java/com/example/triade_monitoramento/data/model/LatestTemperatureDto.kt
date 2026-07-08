@@ -13,5 +13,8 @@ data class LatestTemperatureDto(
     val umidade: Double = 0.0,
 
     @Json(name = "porta")
-    val porta: Double? = null
+    val porta: Double? = null,
+
+    @Json(name = "id")
+    val id: String? = null
 )

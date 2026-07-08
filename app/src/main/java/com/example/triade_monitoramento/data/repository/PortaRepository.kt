@@ -4,6 +4,7 @@ import com.example.triade_monitoramento.data.api.TemperatureApi
 import com.example.triade_monitoramento.ui.sensor.PortaAbertaItem
 import com.example.triade_monitoramento.ui.sensor.PortaConfigDto
 import com.example.triade_monitoramento.ui.sensor.PortaConfigRequestDto
+import com.example.triade_monitoramento.data.model.TemperaturePointDto
 
 data class PortaEventosResumo(
     val sensorId: String,
@@ -18,6 +19,19 @@ data class PortaEventosResumo(
 class PortaRepository(
     private val api: TemperatureApi
 ) {
+    suspend fun historyByPeriod(
+        id: String,
+        startIso: String,
+        stopIso: String,
+        every: String
+    ): List<TemperaturePointDto> {
+        return api.getHistoryByPeriod(
+            id = id,
+            startIso = startIso,
+            stopIso = stopIso,
+            every = every
+        )
+    }
     suspend fun buscarEventosPorta(
         sensorId: String,
         yellow: Int = 60,

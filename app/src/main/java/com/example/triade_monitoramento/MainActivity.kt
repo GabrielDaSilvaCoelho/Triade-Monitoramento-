@@ -71,151 +71,346 @@ class MainActivity : ComponentActivity() {
         RECUPERAR_SENHA
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
         super.onCreate(savedInstanceState)
 
-        window.statusBarColor = 0xFF769F86.toInt()
+        window.statusBarColor =
+            0xFF769F86.toInt()
 
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
+        val controller =
+            WindowInsetsControllerCompat(
+                window,
+                window.decorView
+            )
+
+        controller.hide(
+            WindowInsetsCompat
+                .Type
+                .navigationBars()
+        )
+
         controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.isAppearanceLightStatusBars = true
+            WindowInsetsControllerCompat
+                .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        controller.isAppearanceLightStatusBars =
+            true
 
         setContent {
             MaterialTheme {
                 Surface {
-                    val portaRepository = remember {
-                        PortaRepository(NetworkModule.temperatureApi)
+                    val portaRepository =
+                        remember {
+                            PortaRepository(
+                                NetworkModule.temperatureApi
+                            )
+                        }
+
+                    val temperatureRepo =
+                        remember {
+                            TemperatureRepository(
+                                NetworkModule.temperatureApi
+                            )
+                        }
+
+                    val factory =
+                        remember {
+                            TemperatureVmFactory(
+                                temperatureRepo
+                            )
+                        }
+
+                    val vm: TemperatureViewModel =
+                        viewModel(
+                            factory = factory
+                        )
+
+                    val state by
+                    vm.state.collectAsState()
+
+                    val sensoresRealtime by
+                    vm.sensoresRealtime
+                        .collectAsState()
+
+                    /*
+                     * Esta passa a ser a única seleção oficial.
+                     * Não existe mais outro sensorSelecionado local.
+                     */
+                    val sensorSelecionado =
+                        state.sensorSelecionado
+
+                    val usuarioRepository =
+                        remember {
+                            UsuarioRepository()
+                        }
+
+                    var telaAtual by
+                    rememberSaveable {
+                        mutableStateOf(
+                            Tela.LOGIN
+                        )
                     }
 
-                    var portasResumo by remember {
+                    var ultimoCliqueVoltar by
+                    remember {
+                        mutableStateOf(0L)
+                    }
+
+                    var sensoresDaConta by
+                    remember {
+                        mutableStateOf<
+                                List<SensorConfigData>
+                                >(emptyList())
+                    }
+
+                    val sensoresUserSensor =
+                        remember(
+                            sensoresDaConta
+                        ) {
+                            sensoresDaConta.map {
+                                    sensor ->
+                                UserSensor(
+                                    sensorId =
+                                        sensor.sensorId,
+                                    nome =
+                                        sensor.nome
+                                            ?: sensor.sensorId
+                                )
+                            }
+                        }
+
+                    var sensorSelecionadoConfig by
+                    remember {
+                        mutableStateOf<
+                                SensorListItemUi?
+                                >(null)
+                    }
+
+                    var usuarioLogado by
+                    remember {
+                        mutableStateOf<
+                                UsuarioPerfil?
+                                >(null)
+                    }
+
+                    var filtroStartIso by
+                    rememberSaveable {
+                        mutableStateOf<
+                                String?
+                                >(null)
+                    }
+
+                    var filtroStopIso by
+                    rememberSaveable {
+                        mutableStateOf<
+                                String?
+                                >(null)
+                    }
+
+                    var portasResumo by
+                    remember {
                         mutableStateOf(
                             PortaEventosResumo(
                                 sensorId = "",
                                 sensorNome = "",
-                                yellowAfterSeconds = 60,
-                                redAfterSeconds = 300,
+                                yellowAfterSeconds =
+                                    60,
+                                redAfterSeconds =
+                                    300,
                                 amarelos = 0,
                                 vermelhos = 0,
-                                eventos = emptyList()
+                                eventos =
+                                    emptyList()
                             )
                         )
                     }
 
-                    var carregandoPortas by remember { mutableStateOf(false) }
-                    var erroPortas by remember { mutableStateOf<String?>(null) }
-
-                    var mostrarDialogConfigPorta by remember { mutableStateOf(false) }
-                    var yellowConfigText by remember { mutableStateOf("60") }
-                    var redConfigText by remember { mutableStateOf("300") }
-
-                    val temperatureRepo = remember {
-                        TemperatureRepository(NetworkModule.temperatureApi)
+                    var carregandoPortas by
+                    remember {
+                        mutableStateOf(false)
                     }
 
-                    val factory = remember {
-                        TemperatureVmFactory(temperatureRepo)
+                    var erroPortas by
+                    remember {
+                        mutableStateOf<
+                                String?
+                                >(null)
                     }
 
-                    val vm: TemperatureViewModel = viewModel(factory = factory)
-
-                    val state by vm.state.collectAsState()
-                    val sensoresRealtime by vm.sensoresRealtime.collectAsState()
-
-                    val usuarioRepository = remember { UsuarioRepository() }
-
-                    var telaAtual by rememberSaveable {
-                        mutableStateOf(Tela.LOGIN)
+                    var mostrarDialogConfigPorta by
+                    remember {
+                        mutableStateOf(false)
                     }
 
-                    var ultimoCliqueVoltar by remember {
-                        mutableStateOf(0L)
+                    var yellowConfigText by
+                    remember {
+                        mutableStateOf("60")
                     }
 
-                    var sensoresDaConta by remember {
-                        mutableStateOf<List<SensorConfigData>>(emptyList())
-                    }
-
-                    var sensorSelecionado by remember {
-                        mutableStateOf<UserSensor?>(null)
-                    }
-
-                    var sensorSelecionadoConfig by remember {
-                        mutableStateOf<SensorListItemUi?>(null)
-                    }
-
-                    var usuarioLogado by remember {
-                        mutableStateOf<UsuarioPerfil?>(null)
-                    }
-
-                    var filtroStartIso by rememberSaveable {
-                        mutableStateOf<String?>(null)
-                    }
-
-                    var filtroStopIso by rememberSaveable {
-                        mutableStateOf<String?>(null)
-                    }
-
-                    val sensoresUserSensor = sensoresDaConta.map {
-                        UserSensor(
-                            sensorId = it.sensorId,
-                            nome = it.nome ?: it.sensorId
-                        )
+                    var redConfigText by
+                    remember {
+                        mutableStateOf("300")
                     }
 
                     LaunchedEffect(Unit) {
-                        val userIdSalvo = SessionManager.getLoggedUserId(this@MainActivity)
-
-                        Log.d("SESSION_DEBUG", "UserId salvo: $userIdSalvo")
-
-                        if (userIdSalvo != null) {
-                            Session.userId = userIdSalvo
-
-                            val usuario = usuarioRepository.buscarUsuarioLogado()
-
-                            if (usuario != null) {
-                                usuarioLogado = UsuarioPerfil(
-                                    nome = usuario.nome ?: "Sem nome",
-                                    email = usuario.email ?: "Sem email",
-                                    telefone = usuario.telefone ?: "Não informado"
+                        val userIdSalvo =
+                            SessionManager
+                                .getLoggedUserId(
+                                    this@MainActivity
                                 )
 
-                                val repository = SensorRepository(SupabaseClientProvider.client)
-                                val sensores = repository.buscarSensoresDoUsuario()
+                        Log.d(
+                            "SESSION_DEBUG",
+                            "UserId salvo: $userIdSalvo"
+                        )
 
-                                sensoresDaConta = sensores
+                        if (userIdSalvo != null) {
+                            Session.userId =
+                                userIdSalvo
 
-                                sensorSelecionado = sensores.firstOrNull()?.let {
-                                    UserSensor(
-                                        sensorId = it.sensorId,
-                                        nome = it.nome ?: it.sensorId
+                            val usuario =
+                                usuarioRepository
+                                    .buscarUsuarioLogado()
+
+                            if (usuario != null) {
+                                usuarioLogado =
+                                    UsuarioPerfil(
+                                        nome =
+                                            usuario.nome
+                                                ?: "Sem nome",
+                                        email =
+                                            usuario.email
+                                                ?: "Sem email",
+                                        telefone =
+                                            usuario.telefone
+                                                ?: "Não informado"
                                     )
-                                }
 
-                                telaAtual = Tela.TEMPERATURE
+                                val repository =
+                                    SensorRepository(
+                                        SupabaseClientProvider.client
+                                    )
+
+                                sensoresDaConta =
+                                    repository
+                                        .buscarSensoresDoUsuario()
+
+                                telaAtual =
+                                    Tela.TEMPERATURE
                             } else {
-                                SessionManager.logout(this@MainActivity)
-                                Session.userId = null
-                                telaAtual = Tela.LOGIN
+                                SessionManager.logout(
+                                    this@MainActivity
+                                )
+
+                                Session.userId =
+                                    null
+
+                                telaAtual =
+                                    Tela.LOGIN
                             }
                         }
                     }
 
+                    /*
+                     * Quando a lista da conta mudar, o ViewModel
+                     * recebe a nova lista e mantém a seleção atual
+                     * quando ela ainda existir.
+                     */
+                    LaunchedEffect(
+                        sensoresUserSensor
+                    ) {
+                        vm.setSensores(
+                            sensores =
+                                sensoresUserSensor
+                        )
+                    }
+
+                    /*
+                     * Este é o único ponto responsável por iniciar
+                     * o streaming ou carregar o filtro por período.
+                     */
+                    LaunchedEffect(
+                        telaAtual,
+                        state.sensorSelecionado
+                            ?.sensorId,
+                        filtroStartIso,
+                        filtroStopIso
+                    ) {
+                        if (
+                            telaAtual !=
+                            Tela.TEMPERATURE
+                        ) {
+                            vm.stopStreaming()
+                            return@LaunchedEffect
+                        }
+
+                        val sensorId =
+                            state
+                                .sensorSelecionado
+                                ?.sensorId
+                                ?.trim()
+                                .orEmpty()
+
+                        if (sensorId.isBlank()) {
+                            vm.stopStreaming()
+                            return@LaunchedEffect
+                        }
+
+                        val start =
+                            filtroStartIso
+
+                        val stop =
+                            filtroStopIso
+
+                        if (
+                            !start.isNullOrBlank() &&
+                            !stop.isNullOrBlank()
+                        ) {
+                            vm.loadHistoryByPeriod(
+                                id = sensorId,
+                                startIso = start,
+                                stopIso = stop
+                            )
+                        } else {
+                            vm.startStreaming(
+                                id = sensorId,
+                                historyRange = "-30m",
+                                historyEvery = "10s",
+                                pollLatestMs = 5_000L,
+                                maxPoints = 180
+                            )
+                        }
+                    }
+
                     BackHandler {
-                        if (mostrarDialogConfigPorta) {
-                            mostrarDialogConfigPorta = false
+                        if (
+                            mostrarDialogConfigPorta
+                        ) {
+                            mostrarDialogConfigPorta =
+                                false
+
                             return@BackHandler
                         }
 
                         when (telaAtual) {
-                            Tela.LOGIN, Tela.TEMPERATURE -> {
-                                val agora = System.currentTimeMillis()
+                            Tela.LOGIN,
+                            Tela.TEMPERATURE -> {
+                                val agora =
+                                    System
+                                        .currentTimeMillis()
 
-                                if (agora - ultimoCliqueVoltar < 2000) {
+                                if (
+                                    agora -
+                                    ultimoCliqueVoltar <
+                                    2_000
+                                ) {
                                     finish()
                                 } else {
-                                    ultimoCliqueVoltar = agora
+                                    ultimoCliqueVoltar =
+                                        agora
+
                                     Toast.makeText(
                                         this@MainActivity,
                                         "Pressione voltar novamente para sair",
@@ -224,50 +419,92 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            Tela.CADASTRO -> telaAtual = Tela.LOGIN
-                            Tela.RECUPERAR_SENHA -> telaAtual = Tela.LOGIN
-                            Tela.PERFIL -> telaAtual = Tela.TEMPERATURE
-                            Tela.SENSORES -> telaAtual = Tela.TEMPERATURE
-                            Tela.CONFIG_SENSOR -> telaAtual = Tela.SENSORES
-                            Tela.CONFIG_CONTATOS_SENSOR -> telaAtual = Tela.CONFIG_SENSOR
-                            Tela.CONFIG_ALARME_TEMPERATURA -> telaAtual = Tela.CONFIG_SENSOR
-                            Tela.CADASTRO_SENSOR -> telaAtual = Tela.TEMPERATURE
-                            Tela.PORTAS_ABERTAS -> telaAtual = Tela.CONFIG_SENSOR
+                            Tela.CADASTRO ->
+                                telaAtual =
+                                    Tela.LOGIN
+
+                            Tela.RECUPERAR_SENHA ->
+                                telaAtual =
+                                    Tela.LOGIN
+
+                            Tela.PERFIL ->
+                                telaAtual =
+                                    Tela.TEMPERATURE
+
+                            Tela.SENSORES ->
+                                telaAtual =
+                                    Tela.TEMPERATURE
+
+                            Tela.CONFIG_SENSOR ->
+                                telaAtual =
+                                    Tela.SENSORES
+
+                            Tela.CONFIG_CONTATOS_SENSOR ->
+                                telaAtual =
+                                    Tela.CONFIG_SENSOR
+
+                            Tela.CONFIG_ALARME_TEMPERATURA ->
+                                telaAtual =
+                                    Tela.CONFIG_SENSOR
+
+                            Tela.CADASTRO_SENSOR ->
+                                telaAtual =
+                                    Tela.TEMPERATURE
+
+                            Tela.PORTAS_ABERTAS ->
+                                telaAtual =
+                                    Tela.CONFIG_SENSOR
                         }
                     }
 
-                    if (mostrarDialogConfigPorta) {
+                    if (
+                        mostrarDialogConfigPorta
+                    ) {
                         AlertDialog(
                             onDismissRequest = {
-                                mostrarDialogConfigPorta = false
+                                mostrarDialogConfigPorta =
+                                    false
                             },
                             title = {
-                                Text("Configurar tempos de alerta")
+                                Text(
+                                    "Configurar tempos de alerta"
+                                )
                             },
                             text = {
                                 Column {
                                     OutlinedTextField(
-                                        value = yellowConfigText,
+                                        value =
+                                            yellowConfigText,
                                         onValueChange = {
-                                            yellowConfigText = it
+                                            yellowConfigText =
+                                                it
                                         },
                                         label = {
-                                            Text("Tempo amarelo (seg)")
+                                            Text(
+                                                "Tempo amarelo (seg)"
+                                            )
                                         },
                                         singleLine = true
                                     )
 
                                     Spacer(
-                                        modifier = Modifier.height(12.dp)
+                                        modifier =
+                                            Modifier.height(
+                                                12.dp
+                                            )
                                     )
 
                                     OutlinedTextField(
-                                        value = redConfigText,
+                                        value =
+                                            redConfigText,
                                         onValueChange = {
-                                            redConfigText = it
+                                            redConfigText =
+                                                it
                                         },
                                         label = {
-                                            Text("Tempo vermelho (seg)")
+                                            Text(
+                                                "Tempo vermelho (seg)"
+                                            )
                                         },
                                         singleLine = true
                                     )
@@ -276,8 +513,13 @@ class MainActivity : ComponentActivity() {
                             confirmButton = {
                                 TextButton(
                                     onClick = {
-                                        val yellow = yellowConfigText.toIntOrNull()
-                                        val red = redConfigText.toIntOrNull()
+                                        val yellow =
+                                            yellowConfigText
+                                                .toIntOrNull()
+
+                                        val red =
+                                            redConfigText
+                                                .toIntOrNull()
 
                                         if (
                                             yellow == null ||
@@ -295,9 +537,13 @@ class MainActivity : ComponentActivity() {
                                             return@TextButton
                                         }
 
-                                        val sensorId = sensorSelecionadoConfig?.sensorId
+                                        val sensorId =
+                                            sensorSelecionadoConfig
+                                                ?.sensorId
 
-                                        if (sensorId == null) {
+                                        if (
+                                            sensorId == null
+                                        ) {
                                             Toast.makeText(
                                                 this@MainActivity,
                                                 "Sensor não selecionado",
@@ -309,34 +555,52 @@ class MainActivity : ComponentActivity() {
 
                                         lifecycleScope.launch {
                                             try {
-                                                portaRepository.salvarConfigPorta(
-                                                    sensorId = sensorId,
-                                                    yellowAfterSeconds = yellow,
-                                                    redAfterSeconds = red
-                                                )
+                                                portaRepository
+                                                    .salvarConfigPorta(
+                                                        sensorId =
+                                                            sensorId,
+                                                        yellowAfterSeconds =
+                                                            yellow,
+                                                        redAfterSeconds =
+                                                            red
+                                                    )
 
-                                                portasResumo = portaRepository.buscarEventosPorta(
-                                                    sensorId = sensorId,
-                                                    yellow = yellow,
-                                                    red = red
-                                                )
+                                                portasResumo =
+                                                    portaRepository
+                                                        .buscarEventosPorta(
+                                                            sensorId =
+                                                                sensorId,
+                                                            yellow =
+                                                                yellow,
+                                                            red =
+                                                                red
+                                                        )
 
-                                                yellowConfigText = portasResumo.yellowAfterSeconds.toString()
-                                                redConfigText = portasResumo.redAfterSeconds.toString()
+                                                yellowConfigText =
+                                                    portasResumo
+                                                        .yellowAfterSeconds
+                                                        .toString()
 
-                                                mostrarDialogConfigPorta = false
+                                                redConfigText =
+                                                    portasResumo
+                                                        .redAfterSeconds
+                                                        .toString()
+
+                                                mostrarDialogConfigPorta =
+                                                    false
 
                                                 Toast.makeText(
                                                     this@MainActivity,
                                                     "Configuração salva",
                                                     Toast.LENGTH_SHORT
                                                 ).show()
-
-                                                mostrarDialogConfigPorta = false
-                                            } catch (e: Exception) {
+                                            } catch (
+                                                e: Exception
+                                            ) {
                                                 Toast.makeText(
                                                     this@MainActivity,
-                                                    e.message ?: "Erro ao salvar configuração",
+                                                    e.message
+                                                        ?: "Erro ao salvar configuração",
                                                     Toast.LENGTH_LONG
                                                 ).show()
                                             }
@@ -349,7 +613,8 @@ class MainActivity : ComponentActivity() {
                             dismissButton = {
                                 TextButton(
                                     onClick = {
-                                        mostrarDialogConfigPorta = false
+                                        mostrarDialogConfigPorta =
+                                            false
                                     }
                                 ) {
                                     Text("Cancelar")
@@ -358,81 +623,64 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    LaunchedEffect(sensoresDaConta, sensorSelecionado) {
-                        vm.setSensores(
-                            sensores = sensoresUserSensor,
-                            sensorSelecionado = sensorSelecionado
-                        )
-                    }
-
-                    LaunchedEffect(
-                        sensorSelecionado?.sensorId,
-                        filtroStartIso,
-                        filtroStopIso
-                    ) {
-                        val sensorId = sensorSelecionado?.sensorId.orEmpty()
-
-                        if (sensorId.isBlank()) return@LaunchedEffect
-
-                        val start = filtroStartIso
-                        val stop = filtroStopIso
-
-                        if (!start.isNullOrBlank() && !stop.isNullOrBlank()) {
-                            vm.loadHistoryByPeriod(
-                                id = sensorId,
-                                startIso = start,
-                                stopIso = stop
-                            )
-                        } else {
-                            vm.startStreaming(
-                                id = sensorId,
-                                historyRange = "1h",
-                                historyEvery = "10s",
-                                pollLatestMs = 5_000L,
-                                maxPoints = null
-                            )
-                        }
-                    }
-
                     when (telaAtual) {
                         Tela.LOGIN -> {
                             LoginScreen(
-                                onLogado = { usuario ->
+                                onLogado = {
+                                        usuario ->
                                     lifecycleScope.launch {
-                                        Session.userId = usuario.id
-                                        SessionManager.saveLogin(this@MainActivity, usuario.id)
+                                        Session.userId =
+                                            usuario.id
 
-                                        usuarioLogado = UsuarioPerfil(
-                                            nome = usuario.nome ?: "Sem nome",
-                                            email = usuario.email ?: "Sem email",
-                                            telefone = usuario.telefone ?: "Não informado"
-                                        )
+                                        SessionManager
+                                            .saveLogin(
+                                                this@MainActivity,
+                                                usuario.id
+                                            )
+
+                                        usuarioLogado =
+                                            UsuarioPerfil(
+                                                nome =
+                                                    usuario.nome
+                                                        ?: "Sem nome",
+                                                email =
+                                                    usuario.email
+                                                        ?: "Sem email",
+                                                telefone =
+                                                    usuario.telefone
+                                                        ?: "Não informado"
+                                            )
 
                                         val repository =
-                                            SensorRepository(SupabaseClientProvider.client)
-
-                                        val sensores = repository.buscarSensoresDoUsuario()
-
-                                        sensoresDaConta = sensores
-
-                                        sensorSelecionado = sensores.firstOrNull()?.let {
-                                            UserSensor(
-                                                sensorId = it.sensorId,
-                                                nome = it.nome ?: it.sensorId
+                                            SensorRepository(
+                                                SupabaseClientProvider.client
                                             )
-                                        }
 
-                                        Log.d("DEBUG_USER", "Usuario logado ID: ${usuario.id}")
-                                        Log.d("DEBUG_SESSION", "Session ID: ${Session.userId}")
+                                        sensoresDaConta =
+                                            repository
+                                                .buscarSensoresDoUsuario()
 
-                                        telaAtual = Tela.TEMPERATURE
+                                        Log.d(
+                                            "DEBUG_USER",
+                                            "Usuario logado ID: ${usuario.id}"
+                                        )
+
+                                        Log.d(
+                                            "DEBUG_SESSION",
+                                            "Session ID: ${Session.userId}"
+                                        )
+
+                                        telaAtual =
+                                            Tela.TEMPERATURE
                                     }
                                 },
                                 onIrParaCadastro = {
-                                    telaAtual = Tela.CADASTRO
+                                    telaAtual =
+                                        Tela.CADASTRO
                                 },
                                 onEsqueciSenha = {
-                                    telaAtual = Tela.RECUPERAR_SENHA
+                                    telaAtual =
+                                        Tela.RECUPERAR_SENHA
                                 }
                             )
                         }
@@ -440,7 +688,8 @@ class MainActivity : ComponentActivity() {
                         Tela.RECUPERAR_SENHA -> {
                             RecuperarSenhaScreen(
                                 onVoltarLogin = {
-                                    telaAtual = Tela.LOGIN
+                                    telaAtual =
+                                        Tela.LOGIN
                                 }
                             )
                         }
@@ -448,10 +697,12 @@ class MainActivity : ComponentActivity() {
                         Tela.CADASTRO -> {
                             CadastroScreen(
                                 onCadastrado = {
-                                    telaAtual = Tela.LOGIN
+                                    telaAtual =
+                                        Tela.LOGIN
                                 },
                                 onIrParaLogin = {
-                                    telaAtual = Tela.LOGIN
+                                    telaAtual =
+                                        Tela.LOGIN
                                 }
                             )
                         }
@@ -459,79 +710,119 @@ class MainActivity : ComponentActivity() {
                         Tela.TEMPERATURE -> {
                             TemperatureScreen(
                                 state = state,
-                                currentSensor = sensorSelecionado,
-                                availableSensors = sensoresUserSensor,
-                                onSelectSensor = { sensor ->
-                                    sensorSelecionado = sensor
-                                    vm.selecionarSensor(sensor)
+                                currentSensor =
+                                    state.sensorSelecionado,
+                                availableSensors =
+                                    sensoresUserSensor,
+                                onSelectSensor = {
+                                        sensor ->
+                                    filtroStartIso =
+                                        null
+
+                                    filtroStopIso =
+                                        null
+
+                                    vm.selecionarSensor(
+                                        sensor
+                                    )
                                 },
                                 onGoToSensorRegister = {
-                                    telaAtual = Tela.CADASTRO_SENSOR
+                                    telaAtual =
+                                        Tela.CADASTRO_SENSOR
                                 },
-                                onApplyPeriod = { start, stop ->
-                                    filtroStartIso = start
-                                    filtroStopIso = stop
+                                onApplyPeriod = {
+                                        start,
+                                        stop ->
+                                    filtroStartIso =
+                                        start
+
+                                    filtroStopIso =
+                                        stop
                                 },
                                 onBackToRealtime = {
-                                    filtroStartIso = null
-                                    filtroStopIso = null
+                                    /*
+                                     * O LaunchedEffect detecta os filtros
+                                     * nulos e inicia o streaming. Não chame
+                                     * startStreaming diretamente aqui.
+                                     */
+                                    filtroStartIso =
+                                        null
 
-                                    sensorSelecionado?.sensorId?.let { id ->
-                                        vm.stopStreaming()
-                                        vm.startStreaming(
-                                            id = id,
-                                            historyRange = "1h",
-                                            historyEvery = "10s",
-                                            pollLatestMs = 5_000L,
-                                            maxPoints = 360
-                                        )
-                                    }
+                                    filtroStopIso =
+                                        null
                                 },
                                 onGoToPerfil = {
-                                    telaAtual = Tela.PERFIL
+                                    telaAtual =
+                                        Tela.PERFIL
                                 },
                                 onGoToSensores = {
-                                    telaAtual = Tela.SENSORES
+                                    telaAtual =
+                                        Tela.SENSORES
                                 },
                                 onSair = {
-                                    SessionManager.logout(this@MainActivity)
+                                    SessionManager.logout(
+                                        this@MainActivity
+                                    )
 
-                                    Session.userId = null
-                                    usuarioLogado = null
-                                    sensoresDaConta = emptyList()
-                                    sensorSelecionado = null
-                                    sensorSelecionadoConfig = null
-                                    filtroStartIso = null
-                                    filtroStopIso = null
+                                    Session.userId =
+                                        null
 
-                                    vm.stopStreaming()
-                                    vm.stopSensoresRealtime()
+                                    usuarioLogado =
+                                        null
 
-                                    telaAtual = Tela.LOGIN
+                                    sensoresDaConta =
+                                        emptyList()
+
+                                    sensorSelecionadoConfig =
+                                        null
+
+                                    filtroStartIso =
+                                        null
+
+                                    filtroStopIso =
+                                        null
+
+                                    vm.clearSession()
+
+                                    telaAtual =
+                                        Tela.LOGIN
                                 }
                             )
                         }
 
                         Tela.PERFIL -> {
                             PerfilScreen(
-                                usuario = usuarioLogado ?: UsuarioPerfil(
-                                    nome = "Usuário",
-                                    email = "email@exemplo.com",
-                                    telefone = "Não informado"
-                                ),
+                                usuario =
+                                    usuarioLogado
+                                        ?: UsuarioPerfil(
+                                            nome =
+                                                "Usuário",
+                                            email =
+                                                "email@exemplo.com",
+                                            telefone =
+                                                "Não informado"
+                                        ),
                                 onVoltar = {
-                                    telaAtual = Tela.TEMPERATURE
+                                    telaAtual =
+                                        Tela.TEMPERATURE
                                 },
-                                onSalvarPerfil = { novoPerfil ->
+                                onSalvarPerfil = {
+                                        novoPerfil ->
                                     lifecycleScope.launch {
-                                        val sucesso = usuarioRepository.atualizarPerfil(
-                                            nome = novoPerfil.nome,
-                                            email = novoPerfil.email,
-                                            telefone = novoPerfil.telefone
-                                        )
+                                        val sucesso =
+                                            usuarioRepository
+                                                .atualizarPerfil(
+                                                    nome =
+                                                        novoPerfil.nome,
+                                                    email =
+                                                        novoPerfil.email,
+                                                    telefone =
+                                                        novoPerfil.telefone
+                                                )
 
                                         if (sucesso) {
-                                            usuarioLogado = novoPerfil
+                                            usuarioLogado =
+                                                novoPerfil
 
                                             Toast.makeText(
                                                 this@MainActivity,
@@ -551,69 +842,75 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Tela.SENSORES -> {
-                            val sensoresComLimites = sensoresRealtime.map { sensorRealtime ->
-                                val config = sensoresDaConta.find {
-                                    it.sensorId == sensorRealtime.sensorId
+                            val sensoresComLimites =
+                                sensoresRealtime.map {
+                                        sensorRealtime ->
+                                    val config =
+                                        sensoresDaConta
+                                            .find {
+                                                it.sensorId ==
+                                                        sensorRealtime.sensorId
+                                            }
+
+                                    sensorRealtime.copy(
+                                        nome =
+                                            config?.nome
+                                                ?: sensorRealtime.nome,
+                                        tempLimitMax =
+                                            config?.tempLimitMax,
+                                        tempLimitMin =
+                                            config?.tempLimitMin,
+                                        acknowledged =
+                                            config?.acknowledged
+                                                ?: false
+                                    )
                                 }
 
-                                sensorRealtime.copy(
-                                    nome = config?.nome ?: sensorRealtime.nome,
-                                    tempLimitMax = config?.tempLimitMax,
-                                    tempLimitMin = config?.tempLimitMin,
-                                    acknowledged = config?.acknowledged ?: false
-                                )
-                            }
-
                             SensoresScreen(
-                                sensores = sensoresComLimites,
+                                sensores =
+                                    sensoresComLimites,
                                 onBack = {
-                                    telaAtual = Tela.TEMPERATURE
+                                    telaAtual =
+                                        Tela.TEMPERATURE
                                 },
-                                onAbrirConfiguracao = { sensor ->
-                                    sensorSelecionadoConfig = sensor
-                                    telaAtual = Tela.CONFIG_SENSOR
+                                onAbrirConfiguracao = {
+                                        sensor ->
+                                    sensorSelecionadoConfig =
+                                        sensor
+
+                                    telaAtual =
+                                        Tela.CONFIG_SENSOR
                                 },
                                 onRefresh = {
                                     lifecycleScope.launch {
                                         val repository =
-                                            SensorRepository(SupabaseClientProvider.client)
+                                            SensorRepository(
+                                                SupabaseClientProvider.client
+                                            )
 
-                                        val sensores = repository.buscarSensoresDoUsuario()
-
-                                        sensoresDaConta = sensores
-
-                                        vm.startSensoresRealtime(
-                                            sensores = sensores.map {
-                                                UserSensor(
-                                                    sensorId = it.sensorId,
-                                                    nome = it.nome ?: it.sensorId
-                                                )
-                                            }
-                                        )
+                                        sensoresDaConta =
+                                            repository
+                                                .buscarSensoresDoUsuario()
                                     }
                                 },
-                                onReconhecerAlerta = { sensorId ->
+                                onReconhecerAlerta = {
+                                        sensorId ->
                                     lifecycleScope.launch {
                                         val repository =
-                                            SensorRepository(SupabaseClientProvider.client)
+                                            SensorRepository(
+                                                SupabaseClientProvider.client
+                                            )
 
                                         val sucesso =
-                                            repository.marcarAlertaComoCiente(sensorId)
+                                            repository
+                                                .marcarAlertaComoCiente(
+                                                    sensorId
+                                                )
 
                                         if (sucesso) {
-                                            val sensores =
-                                                repository.buscarSensoresDoUsuario()
-
-                                            sensoresDaConta = sensores
-
-                                            vm.startSensoresRealtime(
-                                                sensores = sensores.map {
-                                                    UserSensor(
-                                                        sensorId = it.sensorId,
-                                                        nome = it.nome ?: it.sensorId
-                                                    )
-                                                }
-                                            )
+                                            sensoresDaConta =
+                                                repository
+                                                    .buscarSensoresDoUsuario()
                                         }
                                     }
                                 }
@@ -621,69 +918,94 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Tela.CONFIG_SENSOR -> {
-                            val sensor = sensorSelecionadoConfig
+                            val sensor =
+                                sensorSelecionadoConfig
 
                             if (sensor != null) {
                                 SensorConfigScreen(
-                                    sensorId = sensor.sensorId,
-                                    nomeInicial = sensor.nome,
-                                    tempMaxInicial = sensor.tempLimitMax,
-                                    tempMinInicial = sensor.tempLimitMin,
+                                    sensorId =
+                                        sensor.sensorId,
+                                    nomeInicial =
+                                        sensor.nome,
+                                    tempMaxInicial =
+                                        sensor.tempLimitMax,
+                                    tempMinInicial =
+                                        sensor.tempLimitMin,
                                     onBack = {
                                         lifecycleScope.launch {
                                             val repository =
-                                                SensorRepository(SupabaseClientProvider.client)
+                                                SensorRepository(
+                                                    SupabaseClientProvider.client
+                                                )
 
-                                            val sensores =
-                                                repository.buscarSensoresDoUsuario()
+                                            sensoresDaConta =
+                                                repository
+                                                    .buscarSensoresDoUsuario()
 
-                                            sensoresDaConta = sensores
+                                            sensorSelecionadoConfig =
+                                                null
 
-                                            vm.startSensoresRealtime(
-                                                sensores = sensores.map {
-                                                    UserSensor(
-                                                        sensorId = it.sensorId,
-                                                        nome = it.nome ?: it.sensorId
-                                                    )
-                                                }
-                                            )
-
-                                            sensorSelecionadoConfig = null
-                                            telaAtual = Tela.SENSORES
+                                            telaAtual =
+                                                Tela.SENSORES
                                         }
                                     },
                                     onGerenciarContatos = {
-                                        telaAtual = Tela.CONFIG_CONTATOS_SENSOR
+                                        telaAtual =
+                                            Tela.CONFIG_CONTATOS_SENSOR
                                     },
                                     onRelatorioPortas = {
-                                        val sensorId = sensorSelecionadoConfig?.sensorId
+                                        val sensorId =
+                                            sensorSelecionadoConfig
+                                                ?.sensorId
 
-                                        if (sensorId != null) {
-                                            telaAtual = Tela.PORTAS_ABERTAS
+                                        if (
+                                            sensorId != null
+                                        ) {
+                                            telaAtual =
+                                                Tela.PORTAS_ABERTAS
 
                                             lifecycleScope.launch {
-                                                carregandoPortas = true
-                                                erroPortas = null
+                                                carregandoPortas =
+                                                    true
+
+                                                erroPortas =
+                                                    null
 
                                                 try {
                                                     val config =
-                                                        portaRepository.buscarConfigPorta(sensorId)
+                                                        portaRepository
+                                                            .buscarConfigPorta(
+                                                                sensorId
+                                                            )
 
                                                     portasResumo =
-                                                        portaRepository.buscarEventosPorta(
-                                                            sensorId = sensorId,
-                                                            yellow = config.yellowAfterSeconds,
-                                                            red = config.redAfterSeconds
-                                                        )
+                                                        portaRepository
+                                                            .buscarEventosPorta(
+                                                                sensorId =
+                                                                    sensorId,
+                                                                yellow =
+                                                                    config
+                                                                        .yellowAfterSeconds,
+                                                                red =
+                                                                    config
+                                                                        .redAfterSeconds
+                                                            )
 
                                                     yellowConfigText =
-                                                        portasResumo.yellowAfterSeconds.toString()
+                                                        portasResumo
+                                                            .yellowAfterSeconds
+                                                            .toString()
 
                                                     redConfigText =
-                                                        portasResumo.redAfterSeconds.toString()
-                                                } catch (e: Exception) {
+                                                        portasResumo
+                                                            .redAfterSeconds
+                                                            .toString()
+                                                } catch (
+                                                    e: Exception
+                                                ) {
                                                     erroPortas =
-                                                        e.message ?: "Erro ao carregar eventos de porta"
+                                                        e.message
+                                                            ?: "Erro ao carregar eventos de porta"
 
                                                     Toast.makeText(
                                                         this@MainActivity,
@@ -691,147 +1013,186 @@ class MainActivity : ComponentActivity() {
                                                         Toast.LENGTH_SHORT
                                                     ).show()
                                                 } finally {
-                                                    carregandoPortas = false
+                                                    carregandoPortas =
+                                                        false
                                                 }
                                             }
                                         }
                                     },
                                     onGerenciarAlarmes = {
-                                        telaAtual = Tela.CONFIG_ALARME_TEMPERATURA
+                                        telaAtual =
+                                            Tela.CONFIG_ALARME_TEMPERATURA
                                     },
                                     onSensorExcluido = {
                                         lifecycleScope.launch {
                                             val repository =
-                                                SensorRepository(SupabaseClientProvider.client)
-
-                                            val sensores =
-                                                repository.buscarSensoresDoUsuario()
-
-                                            sensoresDaConta = sensores
-
-                                            sensorSelecionado = sensores.firstOrNull()?.let {
-                                                UserSensor(
-                                                    sensorId = it.sensorId,
-                                                    nome = it.nome ?: it.sensorId
+                                                SensorRepository(
+                                                    SupabaseClientProvider.client
                                                 )
-                                            }
 
-                                            sensorSelecionadoConfig = null
-                                            telaAtual = Tela.SENSORES
+                                            sensoresDaConta =
+                                                repository
+                                                    .buscarSensoresDoUsuario()
+
+                                            sensorSelecionadoConfig =
+                                                null
+
+                                            telaAtual =
+                                                Tela.SENSORES
                                         }
                                     }
                                 )
                             } else {
-                                telaAtual = Tela.SENSORES
+                                telaAtual =
+                                    Tela.SENSORES
                             }
                         }
 
                         Tela.CONFIG_ALARME_TEMPERATURA -> {
-                            val sensor = sensorSelecionadoConfig
+                            val sensor =
+                                sensorSelecionadoConfig
 
                             if (sensor != null) {
                                 ConfiguracaoAlarmeDeTemperaturaScreen(
-                                    sensorId = sensor.sensorId,
-                                    nomeInicial = sensor.nome,
-                                    tempMaxInicial = sensor.tempLimitMax,
-                                    tempMinInicial = sensor.tempLimitMin,
+                                    sensorId =
+                                        sensor.sensorId,
+                                    nomeInicial =
+                                        sensor.nome,
+                                    tempMaxInicial =
+                                        sensor.tempLimitMax,
+                                    tempMinInicial =
+                                        sensor.tempLimitMin,
                                     onBack = {
                                         lifecycleScope.launch {
                                             val repository =
-                                                SensorRepository(SupabaseClientProvider.client)
+                                                SensorRepository(
+                                                    SupabaseClientProvider.client
+                                                )
 
-                                            val sensores =
-                                                repository.buscarSensoresDoUsuario()
+                                            sensoresDaConta =
+                                                repository
+                                                    .buscarSensoresDoUsuario()
 
-                                            sensoresDaConta = sensores
-
-                                            vm.startSensoresRealtime(
-                                                sensores = sensores.map {
-                                                    UserSensor(
-                                                        sensorId = it.sensorId,
-                                                        nome = it.nome ?: it.sensorId
-                                                    )
-                                                }
-                                            )
-
-                                            telaAtual = Tela.CONFIG_SENSOR
+                                            telaAtual =
+                                                Tela.CONFIG_SENSOR
                                         }
                                     },
                                     onSensorExcluido = {
                                         lifecycleScope.launch {
                                             val repository =
-                                                SensorRepository(SupabaseClientProvider.client)
-
-                                            val sensores =
-                                                repository.buscarSensoresDoUsuario()
-
-                                            sensoresDaConta = sensores
-
-                                            sensorSelecionado = sensores.firstOrNull()?.let {
-                                                UserSensor(
-                                                    sensorId = it.sensorId,
-                                                    nome = it.nome ?: it.sensorId
+                                                SensorRepository(
+                                                    SupabaseClientProvider.client
                                                 )
-                                            }
 
-                                            sensorSelecionadoConfig = null
-                                            telaAtual = Tela.SENSORES
+                                            sensoresDaConta =
+                                                repository
+                                                    .buscarSensoresDoUsuario()
+
+                                            sensorSelecionadoConfig =
+                                                null
+
+                                            telaAtual =
+                                                Tela.SENSORES
                                         }
                                     }
                                 )
                             } else {
-                                telaAtual = Tela.SENSORES
+                                telaAtual =
+                                    Tela.SENSORES
                             }
                         }
 
                         Tela.CONFIG_CONTATOS_SENSOR -> {
-                            val sensor = sensorSelecionadoConfig
+                            val sensor =
+                                sensorSelecionadoConfig
 
                             if (sensor != null) {
                                 SensorContatosScreen(
-                                    sensorId = sensor.sensorId,
-                                    sensorNome = sensor.nome,
+                                    sensorId =
+                                        sensor.sensorId,
+                                    sensorNome =
+                                        sensor.nome,
                                     onBack = {
-                                        telaAtual = Tela.CONFIG_SENSOR
+                                        telaAtual =
+                                            Tela.CONFIG_SENSOR
                                     }
                                 )
                             } else {
-                                telaAtual = Tela.SENSORES
+                                telaAtual =
+                                    Tela.SENSORES
                             }
                         }
 
                         Tela.PORTAS_ABERTAS -> {
                             PortasAbertasScreen(
-                                sensorNome = portasResumo.sensorNome,
-                                amarelos = portasResumo.amarelos,
-                                vermelhos = portasResumo.vermelhos,
-                                yellowAfterSeconds = portasResumo.yellowAfterSeconds,
-                                redAfterSeconds = portasResumo.redAfterSeconds,
-                                portasAbertas = portasResumo.eventos,
+                                sensorNome =
+                                    portasResumo.sensorNome,
+                                amarelos =
+                                    portasResumo.amarelos,
+                                vermelhos =
+                                    portasResumo.vermelhos,
+                                yellowAfterSeconds =
+                                    portasResumo
+                                        .yellowAfterSeconds,
+                                redAfterSeconds =
+                                    portasResumo
+                                        .redAfterSeconds,
+                                portasAbertas =
+                                    portasResumo.eventos,
                                 onConfigurarTempos = {
-                                    yellowConfigText = portasResumo.yellowAfterSeconds.toString()
-                                    redConfigText = portasResumo.redAfterSeconds.toString()
-                                    mostrarDialogConfigPorta = true
+                                    yellowConfigText =
+                                        portasResumo
+                                            .yellowAfterSeconds
+                                            .toString()
+
+                                    redConfigText =
+                                        portasResumo
+                                            .redAfterSeconds
+                                            .toString()
+
+                                    mostrarDialogConfigPorta =
+                                        true
                                 },
                                 onRefresh = {
-                                    sensorSelecionadoConfig?.sensorId?.let { sensorId ->
-                                        lifecycleScope.launch {
-                                            val config = portaRepository.buscarConfigPorta(sensorId)
+                                    sensorSelecionadoConfig
+                                        ?.sensorId
+                                        ?.let {
+                                                sensorId ->
+                                            lifecycleScope.launch {
+                                                val config =
+                                                    portaRepository
+                                                        .buscarConfigPorta(
+                                                            sensorId
+                                                        )
 
-                                            portasResumo =
-                                                portaRepository.buscarEventosPorta(
-                                                    sensorId = sensorId,
-                                                    yellow = config.yellowAfterSeconds,
-                                                    red = config.redAfterSeconds
-                                                )
+                                                portasResumo =
+                                                    portaRepository
+                                                        .buscarEventosPorta(
+                                                            sensorId =
+                                                                sensorId,
+                                                            yellow =
+                                                                config
+                                                                    .yellowAfterSeconds,
+                                                            red =
+                                                                config
+                                                                    .redAfterSeconds
+                                                        )
 
-                                            yellowConfigText = portasResumo.yellowAfterSeconds.toString()
-                                            redConfigText = portasResumo.redAfterSeconds.toString()
+                                                yellowConfigText =
+                                                    portasResumo
+                                                        .yellowAfterSeconds
+                                                        .toString()
+
+                                                redConfigText =
+                                                    portasResumo
+                                                        .redAfterSeconds
+                                                        .toString()
+                                            }
                                         }
-                                    }
                                 },
                                 onBack = {
-                                    telaAtual = Tela.CONFIG_SENSOR
+                                    telaAtual =
+                                        Tela.CONFIG_SENSOR
                                 }
                             )
                         }
@@ -841,21 +1202,16 @@ class MainActivity : ComponentActivity() {
                                 onBack = {
                                     lifecycleScope.launch {
                                         val repository =
-                                            SensorRepository(SupabaseClientProvider.client)
-
-                                        val sensores =
-                                            repository.buscarSensoresDoUsuario()
-
-                                        sensoresDaConta = sensores
-
-                                        sensorSelecionado = sensores.firstOrNull()?.let {
-                                            UserSensor(
-                                                sensorId = it.sensorId,
-                                                nome = it.nome ?: it.sensorId
+                                            SensorRepository(
+                                                SupabaseClientProvider.client
                                             )
-                                        }
 
-                                        telaAtual = Tela.TEMPERATURE
+                                        sensoresDaConta =
+                                            repository
+                                                .buscarSensoresDoUsuario()
+
+                                        telaAtual =
+                                            Tela.TEMPERATURE
                                     }
                                 }
                             )

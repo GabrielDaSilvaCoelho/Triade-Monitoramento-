@@ -1,5 +1,3 @@
-
-
 package com.example.triade_monitoramento.data.model
 
 data class UserSensor(
